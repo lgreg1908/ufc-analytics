@@ -8,7 +8,9 @@ from src.clean.utils import (
     split_method, 
     convert_time_to_seconds,
     parse_fraction,
-    parse_percentage
+    parse_percentage,
+    assign_method_type,
+    assign_fighter_outcomes
     )
 
 
@@ -56,7 +58,7 @@ class ResultsCleaner(BaseCleaner):
       - Convert the "round" column to numeric.
       - For the "method" column, split it into two new columns ("method_short"
         and "method_detail") when the string contains multiple lines.
-      - Convert the "winner" column into a standardized "result" column.
+      - Convert the "winner" column into a standardized "result_type" column.
       - Split the "fighters_urls" list into two separate columns: "fighter1_url" and "fighter2_url".
     """
     def clean(self) -> pd.DataFrame:
@@ -68,6 +70,9 @@ class ResultsCleaner(BaseCleaner):
         
         # --- Convert round to numeric ---
         df['round'] = pd.to_numeric(df['round'], errors='coerce')
+
+        # --- Fight duration --- 
+        df['fight_duration_seconds'] = df['time_seconds'] * df['round']
         
         # --- Process method ---
         # Create two new columns for method: method_short and method_detail.
@@ -77,16 +82,24 @@ class ResultsCleaner(BaseCleaner):
         
         # --- Process winner: rename to result ---
         # For standardization, we can capitalize the first letter.
-        df['result'] = df['winner'].str.capitalize()
+        df['result_type'] = df['winner'].str.capitalize()
         df.drop(columns=['winner'], inplace=True)
         
+        # Create new column method_type based on method_short.
+        df['method_type'] = df['method_short'].apply(assign_method_type)
+
         # --- Process fighter URLs ---
         # Create fighter1_url and fighter2_url columns from the fighters_urls list.
         df['fighter1_url'] = df['fighters_urls'].apply(lambda urls: urls[0] if isinstance(urls, list) and len(urls) > 0 else np.nan)
         df['fighter2_url'] = df['fighters_urls'].apply(lambda urls: urls[1] if isinstance(urls, list) and len(urls) > 1 else np.nan)
         # Optionally drop the original fighters_urls column.
         df.drop(columns=['fighters_urls'], inplace=True)
-        
+
+        # --- Create fighter-specific outcome columns ---
+        outcomes = df['result_type'].apply(lambda r: pd.Series(assign_fighter_outcomes(r)))
+        outcomes.columns = ['fighter1_result', 'fighter2_result']
+        df = pd.concat([df, outcomes], axis=1)
+
         return df
     
 
@@ -152,15 +165,14 @@ class RoundsCleaner(BaseCleaner):
         
         # --- Process fraction columns ---
         # List of columns where the value is of the form "x of y"
-        fraction_columns = ['sig_str', 'total_str', 'head', 'body', 'leg', 'distance', 'clinch', 'ground']
+        fraction_columns = ['sig_str', 'total_str', 'head', 'body', 'leg', 'distance', 'clinch', 'ground', 'td']
         for col in fraction_columns:
             parsed = parse_fraction(df[col])
             df[f"{col}_landed"] = parsed['landed']
             df[f"{col}_attempted"] = parsed['attempted']
         
-        # Optionally, you may drop the original messy columns if they are no longer needed.
-        # For example:
-        # df.drop(columns=['ctrl', 'sig_str', 'total_str', 'td_pct', 'sig_str_pct', 
-        #                  'head', 'body', 'leg', 'distance', 'clinch', 'ground'], inplace=True)
+        # Drop the original messy columns if they are no longer needed.
+        df.drop(columns=['ctrl', 'sig_str', 'total_str', 'td_pct', 'sig_str_pct', 
+                         'head', 'body', 'leg', 'distance', 'clinch', 'ground', 'td'], inplace=True)
         
         return df

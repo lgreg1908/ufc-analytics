@@ -133,3 +133,34 @@ def parse_fraction(series: pd.Series) -> pd.DataFrame:
     """
     extracted = series.str.extract(r'(?P<landed>\d+)\s*of\s*(?P<attempted>\d+)')
     return extracted.apply(pd.to_numeric, errors='coerce')
+
+def assign_method_type(method_short: str) -> str:
+    """
+    Given a method_short string, return a method_type according to the rules:
+      - If method_short in ['U-DEC','S-DEC','M-DEC']: return 'Decision'
+      - If method_short is 'KO/TKO' or 'SUB': return as is.
+      - Otherwise, return 'Other'
+    """
+    if method_short in ['U-DEC', 'S-DEC', 'M-DEC']:
+        return 'Decision'
+    elif method_short == 'KO/TKO':
+        return 'Knockout'
+    elif method_short == 'SUB':
+        return 'Submission'
+    else:
+        return 'Other'
+
+def assign_fighter_outcomes(result: str):
+    """
+    Given the overall result string (from the scraped data), return a tuple:
+    (fighter1_result, fighter2_result)
+    
+    The logic used here is:
+      - If result == "Win": assume fighter1 won and fighter2 lost.
+      - Otherwise (for "Draw", "NC", etc.): assign both fighters the same outcome.
+    """
+    if result == "Win":
+        return ("Win", "Loss")
+    else:
+        # For draws or other outcomes, we assume both share the same label.
+        return (result, result)
