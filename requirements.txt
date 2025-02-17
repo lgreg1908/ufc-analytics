@@ -10,3 +10,4 @@ jupyter
 pyarrow
 dash==2.9.3
 plotly==5.13.0
+gunicorn==20.1.0
