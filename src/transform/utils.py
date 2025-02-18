@@ -53,6 +53,9 @@ def add_dummy_cumsum(df: DataFrame, dummy_col: str, group_col: str, prefix: str 
     # Concatenate the cumulative sum columns with the original DataFrame.
     df = pd.concat([df, cumsum], axis=1)
 
+    # Drop the intermediate dummy columns.
+    df.drop(columns=dummies.columns, inplace=True)
+    
     return df
 
 
@@ -91,7 +94,7 @@ def add_numerical_cumsum(df: DataFrame, num_col: str, group_col: str, prefix: st
     # Define the new column name and add the cumulative sum to the DataFrame.
     new_col_name = f"{prefix}{num_col}"
     df[new_col_name] = cumsum
-    
+
     return df
 
 
