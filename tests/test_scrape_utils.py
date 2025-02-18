@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch
 from src.scrape.utils import get_event_urls, get_fighter_urls, get_fight_urls
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_event_urls_with_valid_data(mock_logger):
     """
     Test get_event_urls with valid event data.
@@ -25,7 +25,7 @@ def test_get_event_urls_with_valid_data(mock_logger):
     
     assert result == expected_urls
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_event_urls_with_missing_event_url(mock_logger):
     """
     Test get_event_urls when an event is missing the 'event_url' field.
@@ -42,7 +42,7 @@ def test_get_event_urls_with_missing_event_url(mock_logger):
         get_event_urls(events_data)
 
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fighter_urls_with_valid_data(mock_logger):
     """
     Test get_fighter_urls with valid fighter data.
@@ -65,7 +65,7 @@ def test_get_fighter_urls_with_valid_data(mock_logger):
     
     assert set(result) == set(expected_urls)
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fighter_urls_with_missing_fighters_urls_field(mock_logger):
     """
     Test get_fighter_urls when a fight is missing the 'fighters_urls' field.
@@ -80,7 +80,7 @@ def test_get_fighter_urls_with_missing_fighters_urls_field(mock_logger):
     with pytest.raises(ValueError, match="'fighters_urls' field is missing in the data."):
         get_fighter_urls(results_data)
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fighter_urls_with_empty_data(mock_logger):
     """
     Test get_fighter_urls with empty results data.
@@ -93,7 +93,7 @@ def test_get_fighter_urls_with_empty_data(mock_logger):
     
     assert result == []
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fighter_urls_with_duplicate_urls(mock_logger):
     """
     Test get_fighter_urls when there are duplicate fighter URLs.
@@ -116,7 +116,7 @@ def test_get_fighter_urls_with_duplicate_urls(mock_logger):
     assert set(result) == set(expected_urls)
 
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fight_urls_with_valid_data(mock_logger):
     """
     Test get_fight_urls with valid fight data.
@@ -139,7 +139,7 @@ def test_get_fight_urls_with_valid_data(mock_logger):
     
     assert set(result) == set(expected_urls)
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fight_urls_with_missing_fight_url_field(mock_logger):
     """
     Test get_fight_urls when a fight is missing the 'fight_url' field.
@@ -154,7 +154,7 @@ def test_get_fight_urls_with_missing_fight_url_field(mock_logger):
     with pytest.raises(ValueError, match="'fight_url' field is missing in the data."):
         get_fight_urls(results_data)
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fight_urls_with_empty_data(mock_logger):
     """
     Test get_fight_urls with empty results data.
@@ -167,7 +167,7 @@ def test_get_fight_urls_with_empty_data(mock_logger):
     
     assert result == []
 
-@patch('src.utils.logger')
+@patch('src.logger')
 def test_get_fight_urls_with_duplicate_urls(mock_logger):
     """
     Test get_fight_urls when there are duplicate fight URLs.
