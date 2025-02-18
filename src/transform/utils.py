@@ -55,7 +55,7 @@ def add_dummy_cumsum(df: DataFrame, dummy_col: str, group_col: str, prefix: str 
 
     # Drop the intermediate dummy columns.
     df.drop(columns=dummies.columns, inplace=True)
-    
+
     return df
 
 
@@ -148,3 +148,35 @@ def add_all_cumsum_columns(
     df[row_count_col] = df.groupby(group_col).cumcount() + 1
     
     return df
+
+
+def subset_most_recent_fight(df: DataFrame, fighter_col: str, date_col: str) -> DataFrame:
+    """
+    Subset the DataFrame to return the most recent fight for each fighter based on the given date column.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The input DataFrame containing fight records.
+    fighter_col : str
+        The column name that uniquely identifies each fighter.
+    date_col : str
+        The column name that contains the date or timestamp of the fight.
+        This column should be convertible to datetime.
+
+    Returns
+    -------
+    DataFrame
+        A subset of the input DataFrame containing only the most recent fight for each fighter.
+    """
+    # Convert the date column to datetime (coercing errors to NaT)
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+    
+    # Drop rows where the date conversion failed (NaT)
+    df = df.dropna(subset=[date_col])
+    
+    # Group by fighter and get the index of the row with the maximum (most recent) date
+    idx = df.groupby(fighter_col)[date_col].idxmax()
+    
+    # Return the subset of rows corresponding to the most recent fight per fighter.
+    return df.loc[idx].copy().reset_index(drop=True)

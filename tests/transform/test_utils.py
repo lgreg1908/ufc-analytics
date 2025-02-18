@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from pandas.testing import assert_series_equal
+from pandas.testing import assert_series_equal, assert_frame_equal
 
 # Assuming the following functions are imported from your module:
 from src.transform.utils import add_all_cumsum_columns
@@ -161,3 +161,104 @@ def test_empty_dataframe():
     )
     # The result should be an empty DataFrame.
     assert result_df.empty
+
+from src.transform.utils import subset_most_recent_fight
+
+def test_basic():
+    # Basic case: multiple fighters with valid dates.
+    data = {
+        "fighter": ["A", "A", "B", "B", "C"],
+        "fight_date": ["2021-01-01", "2021-02-01", "2020-12-31", "2021-03-15", "2021-05-05"],
+        "score": [10, 20, 15, 30, 25]
+    }
+    df = pd.DataFrame(data)
+    result = subset_most_recent_fight(df, "fighter", "fight_date")
+    
+    # For fighter A, most recent is 2021-02-01; fighter B, 2021-03-15; fighter C, 2021-05-05.
+    expected = pd.DataFrame({
+        "fighter": ["A", "B", "C"],
+        "fight_date": pd.to_datetime(["2021-02-01", "2021-03-15", "2021-05-05"]),
+        "score": [20, 30, 25]
+    }).reset_index(drop=True)
+    
+    assert_frame_equal(result, expected)
+
+def test_invalid_dates():
+    # Some rows contain invalid dates; those rows should be dropped.
+    data = {
+        "fighter": ["A", "A", "B", "B"],
+        "fight_date": ["2021-01-01", "invalid_date", "2021-02-01", "2021-03-01"],
+        "score": [10, 20, 15, 30]
+    }
+    df = pd.DataFrame(data)
+    result = subset_most_recent_fight(df, "fighter", "fight_date")
+    
+    # For fighter A, only the valid "2021-01-01" remains; for fighter B, "2021-03-01" is the most recent.
+    expected = pd.DataFrame({
+        "fighter": ["A", "B"],
+        "fight_date": pd.to_datetime(["2021-01-01", "2021-03-01"]),
+        "score": [10, 30]
+    }).reset_index(drop=True)
+    
+    assert_frame_equal(result, expected)
+
+def test_all_invalid_dates():
+    # When all date entries are invalid, the result should be an empty DataFrame.
+    data = {
+        "fighter": ["A", "B"],
+        "fight_date": ["not_a_date", "another_bad_date"],
+        "score": [10, 20]
+    }
+    df = pd.DataFrame(data)
+    result = subset_most_recent_fight(df, "fighter", "fight_date")
+    
+    # The expected DataFrame is empty but retains the original columns.
+    expected = pd.DataFrame(columns=["fighter", "fight_date", "score"])
+    
+    assert result.empty
+    assert list(result.columns) == list(expected.columns)
+
+def test_same_date():
+    # When a fighter has multiple fights on the same date, idxmax() returns the first occurrence.
+    data = {
+        "fighter": ["A", "A", "B"],
+        "fight_date": ["2021-06-01", "2021-06-01", "2021-07-01"],
+        "score": [10, 20, 30]
+    }
+    df = pd.DataFrame(data)
+    result = subset_most_recent_fight(df, "fighter", "fight_date")
+    
+    # For fighter A, the first occurrence (index 0) is returned.
+    expected = pd.DataFrame({
+        "fighter": ["A", "B"],
+        "fight_date": pd.to_datetime(["2021-06-01", "2021-07-01"]),
+        "score": [10, 30]
+    }).reset_index(drop=True)
+    
+    assert_frame_equal(result, expected)
+
+def test_empty_dataframe():
+    # An empty DataFrame should return an empty DataFrame with the same columns.
+    df = pd.DataFrame(columns=["fighter", "fight_date", "score"])
+    result = subset_most_recent_fight(df, "fighter", "fight_date")
+    
+    assert result.empty
+    assert list(result.columns) == ["fighter", "fight_date", "score"]
+
+def test_missing_date_column():
+    # If the date column is missing, a KeyError should be raised.
+    df = pd.DataFrame({
+        "fighter": ["A", "B"],
+        "score": [10, 20]
+    })
+    with pytest.raises(KeyError):
+        subset_most_recent_fight(df, "fighter", "fight_date")
+
+def test_missing_fighter_column():
+    # If the fighter column is missing, a KeyError should be raised.
+    df = pd.DataFrame({
+        "fight_date": ["2021-01-01", "2021-02-01"],
+        "score": [10, 20]
+    })
+    with pytest.raises(KeyError):
+        subset_most_recent_fight(df, "fighter", "fight_date")
