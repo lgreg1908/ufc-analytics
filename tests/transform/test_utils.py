@@ -2,8 +2,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_series_equal, assert_frame_equal
 
-# Assuming the following functions are imported from your module:
-from src.transform.utils import add_all_cumsum_columns
+from src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
 
 def test_dummy_only():
     # Create a DataFrame with a dummy (categorical) column.
@@ -161,8 +160,6 @@ def test_empty_dataframe():
     )
     # The result should be an empty DataFrame.
     assert result_df.empty
-
-from src.transform.utils import subset_most_recent_fight
 
 def test_basic():
     # Basic case: multiple fighters with valid dates.
