@@ -35,7 +35,11 @@ def wide_to_long_results(df: pd.DataFrame) -> pd.DataFrame:
     df1 = df1.drop(columns=drop_cols, errors='ignore')
     df2 = df2.drop(columns=drop_cols, errors='ignore')
     
-    long_df = pd.concat([df1, df2], ignore_index=True)
+    long_df = (
+        pd.concat([df1, df2], ignore_index=True)
+        .sort_values(by=['event_url', 'fight_url', 'fighter_url'])
+        .reset_index(drop=True)
+        )
 
     return long_df
     
