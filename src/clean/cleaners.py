@@ -1,4 +1,3 @@
-import os
 import pandas as pd
 import numpy as np
 from src.clean.utils import (
@@ -72,7 +71,7 @@ class ResultsCleaner(BaseCleaner):
         df['round'] = pd.to_numeric(df['round'], errors='coerce')
 
         # --- Fight duration --- 
-        df['fight_duration_seconds'] = df['time_seconds'] * df['round']
+        df['fight_duration_seconds'] = df['time_seconds'] + ((df['round'] - 1) * 300)
         
         # --- Process method ---
         # Create two new columns for method: method_short and method_detail.
