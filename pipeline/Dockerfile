@@ -22,3 +22,4 @@ ENV PYTHONPATH="/app/pipeline"
 
 # Allow running arbitrary scripts from the scripts/ folder
 ENTRYPOINT ["python", "-m"]
+CMD ["pipeline.scripts.dummy"]
