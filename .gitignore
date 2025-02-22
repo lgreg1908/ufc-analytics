@@ -1,6 +1,6 @@
-# Created by https://www.toptal.com/developers/gitignore/api/python,dbt
-# Edit at https://www.toptal.com/developers/gitignore?templates=python,dbt
 data/
+*key*
+
 
 ### dbt ###
 target/

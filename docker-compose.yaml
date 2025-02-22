@@ -1,0 +1,9 @@
+services:
+  pipeline:
+    image: pipeline-scripts
+    volumes:
+      - "./gcs-key.json:/app/gcs-key.json"
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcs-key.json
+    entrypoint: ["python", "-m"]
+    command: ["pipeline.scripts.dummy"]  # Default script
