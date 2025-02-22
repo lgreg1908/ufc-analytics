@@ -1,9 +1,20 @@
 services:
-  pipeline:
-    image: pipeline-scripts
-    volumes:
-      - "./gcs-key.json:/app/gcs-key.json"
+  pipeline_scrape:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/gcs-key.json
-    entrypoint: ["python", "-m"]
-    command: ["pipeline.scripts.dummy"]  # Default script
+    volumes:
+      - ./gcs-key.json:/app/gcs-key.json:ro
+    command: scripts.scrape
+
+  pipeline_dummy:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcs-key.json
+    volumes:
+      - ./gcs-key.json:/app/gcs-key.json:ro
+    command: scripts.dummy
