@@ -19,7 +19,7 @@ services:
     volumes:
       - ./gcs-key.json:/app/gcs-key.json:ro
     command: scripts.clean
-    
+
   pipeline_dummy:
     build:
       context: ./pipeline
@@ -29,4 +29,14 @@ services:
     volumes:
       - ./gcs-key.json:/app/gcs-key.json:ro
     command: scripts.dummy
-  
+    
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcs-key.json
+    volumes:
+      - ./gcs-key.json:/app/gcs-key.json:ro
+    ports:
+      - "8050:8050"
