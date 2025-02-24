@@ -75,3 +75,21 @@ def load_json_from_gcs(blob_name: str, bucket_name: str) -> pd.DataFrame:
         return df
     except Exception as e:
         raise IOError(f"Error loading data from {blob_name}: {str(e)}") from e
+
+def load_parquet_from_gcs(blob_name: str, bucket_name: str) -> pd.DataFrame:
+    """
+    Downloads a Parquet file from GCS and loads it into a pandas DataFrame.
+    """
+    try:
+        from io import BytesIO
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+        # Download the blob content as bytes
+        bytes_data = blob.download_as_bytes()
+        # Wrap the bytes in a BytesIO buffer for pandas
+        buffer = BytesIO(bytes_data)
+        df = pd.read_parquet(buffer)
+        return df
+    except Exception as e:
+        raise IOError(f"Error loading parquet data from {blob_name}: {str(e)}") from e
