@@ -10,19 +10,31 @@ import dash
 from dash import dcc, html, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
-from pipeline.src.scrape.utils import load_yaml
+
+from pipeline.src.utils import load_yaml, load_parquet_from_gcs
 from pipeline.src.transform.results_utils import wide_to_long_results
 from pipeline.src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
 
 def read_data(config: dict) -> pd.DataFrame:
-    df_results_clean = pd.read_parquet(config['output_files']['clean']['results'])
-    df_fighters_clean = pd.read_parquet(config['output_files']['clean']['fighters'])
-    df_events_clean = pd.read_parquet(config['output_files']['clean']['events'])
+    df_results_clean = load_parquet_from_gcs(
+        blob_name=config['output_files']['clean']['results'],
+        bucket_name=config['gcs']['bucket'])
+    df_fighters_clean = load_parquet_from_gcs(
+        blob_name=config['output_files']['clean']['fighters'],
+        bucket_name=config['gcs']['bucket'])
+    df_events_clean = load_parquet_from_gcs(
+        blob_name=config['output_files']['clean']['events'],
+        bucket_name=config['gcs']['bucket'])
+    
+    df_fighters_clean_opp = (
+        df_fighters_clean[['fighter_url', 'full_name']]
+        .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"}))
     
     df_results_long = df_results_clean.pipe(wide_to_long_results)
     df = (
         df_results_long
         .merge(df_fighters_clean, on='fighter_url')
+        .merge(df_fighters_clean_opp, on='opp_url')
         .merge(df_events_clean, on='event_url')
         .sort_values(by=['date', 'fight_url', 'fighter_url'])
         .reset_index(drop=True)
@@ -191,7 +203,7 @@ def update_profile(selected_fighter_url):
         lambda s: str(datetime.timedelta(seconds=int(s)))
     )
     # Define the columns to display
-    table_columns = ["date", "event", "weight_class", "method", "round", "time", "result",
+    table_columns = ["date", "event", "weight_class", "opp_full_name","method", "round", "time", "result",
                       "fight_duration", 'fight_duration_seconds',
                      "title_fight", "perf_bonus", "fight_of_the_night"]
     table_data = fighter_fights[table_columns].to_dict('records')
@@ -213,9 +225,25 @@ def update_profile(selected_fighter_url):
             'backgroundColor': 'rgb(230, 230, 230)',
             'fontWeight': 'bold'
         },
+        style_data_conditional=[
+            {
+                'if': {
+                    'column_id': 'result',
+                    'filter_query': '{result} eq "Win"'
+                },
+                'color': 'green'
+            },
+            {
+                'if': {
+                    'column_id': 'result',
+                    'filter_query': '{result} eq "Loss"'
+                },
+                'color': 'red'
+            }
+        ],
         page_size=10,
     )
-    
+        
     table_card = dbc.Card(
         [
             dbc.CardHeader(html.H4("Fight History", className="text-center")),
@@ -237,3 +265,4 @@ def update_profile(selected_fighter_url):
 
 if __name__ == '__main__':
     app.run_server(host='0.0.0.0', port=8050, debug=True)
+
