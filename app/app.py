@@ -90,10 +90,10 @@ def create_stats_figure(fighter):
 
 # Initialize the Dash app with Bootstrap styling
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app.title = "MMA Fighter Dashboard"
+app.title = "UFC Fighter Dashboard"
 
 app.layout = dbc.Container([
-    html.H1("MMA Fighter Dashboard", className="my-4 text-center"),
+    html.H1("UFC Fighter Dashboard", className="my-4 text-center"),
     
     dbc.Row([
         dbc.Col(
