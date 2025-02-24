@@ -1,9 +1,7 @@
 import os
 import sys
-import io
 import pandas as pd
-from google.cloud import storage
-from pipeline.src.utils import load_yaml
+from pipeline.src.utils import load_yaml, load_json_from_gcs, upload_to_gcs
 from pipeline.src.clean.cleaners import (
     EventsCleaner, 
     FighterCleaner, 
@@ -16,38 +14,18 @@ logger = setup_logger(log_file="logs/clean.log", log_level="INFO")
 
 CONFIG_PATH = "/app/config/config.yaml"
 
-def upload_to_gcs(bucket_name: str, source_file: str, destination_blob_name: str) -> None:
-    """
-    Uploads a file from the local filesystem to the specified GCS bucket using the full path.
-    """
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-        blob.upload_from_filename(source_file)
-        logger.info(f"Uploaded {source_file} to gs://{bucket_name}/{destination_blob_name}")
-    except Exception as e:
-        logger.error(f"Failed to upload {source_file} to GCS: {str(e)}")
-        raise
 
-def load_and_clean_data_from_gcs(blob_name: str, cleaner_class, bucket_name: str) -> pd.DataFrame:
+def apply_cleaner(df: pd.DataFrame, cleaner_class) -> pd.DataFrame:
     """
-    Downloads the JSON file from GCS, reads it into a DataFrame,
-    and applies the cleaning logic from the provided cleaner_class.
+    Applies the cleaning logic provided by the cleaner_class to the DataFrame.
     """
     try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(blob_name)
-        # Download the blob as text
-        json_data = blob.download_as_text()
-        # Load the JSON data into a DataFrame using StringIO
-        df = pd.read_json(io.StringIO(json_data))
         cleaner = cleaner_class(df)
         cleaned_df = cleaner.clean()
+        logger.info(f"Applied cleaner: {cleaner_class.__name__}")
         return cleaned_df
     except Exception as e:
-        logger.error(f"Error cleaning data from {blob_name}: {str(e)}")
+        logger.error(f"Error cleaning data: {str(e)}")
         raise
 
 def run_cleaning_pipeline(config: dict) -> None:
@@ -60,10 +38,18 @@ def run_cleaning_pipeline(config: dict) -> None:
     try:
         # Download and clean each raw data file from GCS
         cleaned_data = {
-            "events": load_and_clean_data_from_gcs(config['output_files']['raw']['events'], EventsCleaner, bucket_name),
-            "results": load_and_clean_data_from_gcs(config['output_files']['raw']['results'], ResultsCleaner, bucket_name),
-            "fighters": load_and_clean_data_from_gcs(config['output_files']['raw']['fighters'], FighterCleaner, bucket_name),
-            "rounds": load_and_clean_data_from_gcs(config['output_files']['raw']['rounds'], RoundsCleaner, bucket_name),
+            "events": apply_cleaner(
+                load_json_from_gcs(config['output_files']['raw']['events'], bucket_name), 
+                EventsCleaner),
+            "results": apply_cleaner(
+                load_json_from_gcs(config['output_files']['raw']['results'], bucket_name), 
+                ResultsCleaner),
+            "fighters": apply_cleaner(
+                load_json_from_gcs(config['output_files']['raw']['fighters'], bucket_name), 
+                FighterCleaner),
+            "rounds": apply_cleaner(
+                load_json_from_gcs(config['output_files']['raw']['rounds'], bucket_name), 
+                RoundsCleaner),
         }
     except Exception as e:
         logger.error(f"Error during cleaning process: {str(e)}")

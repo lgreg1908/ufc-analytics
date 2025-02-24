@@ -1,7 +1,6 @@
 import os
-from google.cloud import storage
 import pandas as pd
-from pipeline.src.utils import load_yaml
+from pipeline.src.utils import load_yaml, upload_to_gcs
 
 
 def create_sample_df() -> pd.DataFrame:
@@ -20,21 +19,9 @@ def save_to_parquet(df: pd.DataFrame, filepath: str) -> None:
     print(f"Data saved locally to {filepath}")
 
 
-def upload_to_gcs(bucket_name: str, source_file: str, destination_blob_name: str) -> None:
-    """Upload a file to GCS."""
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-        blob.upload_from_filename(source_file)
-        print(f"Uploaded {source_file} to gs://{bucket_name}/{destination_blob_name}")
-    except Exception as e:
-        print("Failed to upload file to GCS:", e)
-
-
 def main():
     """Main function to run the script."""
-    # ✅ Load absolute path for config.yaml
+    # Load absolute path for config.yaml
     CONFIG_PATH = "/app/config/config.yaml"
     
     if not os.path.exists(CONFIG_PATH):
@@ -42,12 +29,12 @@ def main():
 
     config = load_yaml(CONFIG_PATH)
 
-    # ✅ Create and save DataFrame
+    # Create and save DataFrame
     df = create_sample_df()
-    OUTPUT_PATH = "/app/sample2.parquet"  # ✅ Use absolute path inside the container
+    OUTPUT_PATH = "/app/sample2.parquet" 
     save_to_parquet(df, OUTPUT_PATH)
 
-    # ✅ Upload to GCS
+    # Upload to GCS
     bucket_name = config.get("gcs", {}).get("bucket")
     if not bucket_name:
         print("No GCS bucket configured. Skipping upload.")

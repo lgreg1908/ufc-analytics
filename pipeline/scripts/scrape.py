@@ -17,27 +17,12 @@ from pipeline.src.scrape.utils import (
     get_fight_urls, 
     get_fighter_urls
 )
-from pipeline.src.utils import load_yaml
+from pipeline.src.utils import load_yaml, upload_to_gcs
 from pipeline.src.logger import setup_logger
 
 
 # Set up logger (writes to both console and file)
 logger = setup_logger(log_file="logs/scrape.log", log_level="INFO")
-
-
-def upload_to_gcs(bucket_name: str, source_file: str, destination_blob_name: str) -> None:
-    """
-    Uploads a file to the specified Google Cloud Storage bucket.
-    """
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-        blob.upload_from_filename(source_file)
-        logger.info(f"Uploaded {source_file} to gs://{bucket_name}/{destination_blob_name}")
-    except Exception as e:
-        logger.error("Failed to upload to GCS", exc_info=True)
-        raise
 
 
 def scrape_events(config: dict) -> List[BaseModel]:
