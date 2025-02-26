@@ -101,7 +101,7 @@ app.layout = dbc.Container([
                 id='fighter-dropdown',
                 options=[
                     {'label': row['full_name'], 'value': row['fighter_url']}
-                    for _, row in df_current.iterrows()
+                    for _, row in df_current.sort_values('full_name').iterrows()
                 ],
                 placeholder="Select a fighter",
                 clearable=True,
@@ -264,5 +264,6 @@ def update_profile(selected_fighter_url):
     ], fluid=True)
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050, debug=True)
+    port = int(os.environ.get("PORT", 8080))
+    app.run_server(host='0.0.0.0', port=port, debug=True)
 
