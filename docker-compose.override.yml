@@ -39,4 +39,4 @@ services:
     volumes:
       - ./gcs-key.json:/app/gcs-key.json:ro
     ports:
-      - "8050:8050"
+      - "8080:8080"

@@ -22,7 +22,7 @@ COPY pipeline ./pipeline
 ENV PYTHONPATH="/app/pipeline"
 
 # Expose the port the app runs on
-EXPOSE 8050
+EXPOSE 8080
 
 # Run the Dash app
 CMD ["python", "app.py"]

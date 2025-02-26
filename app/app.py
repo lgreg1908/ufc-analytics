@@ -1,34 +1,39 @@
 import os
 import sys
-
-# Add the parent directory of the current file (i.e., project-root) to the PYTHONPATH
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-
-import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import dash
 from dash import dcc, html, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
+import plotly.express as px
+
+# Add the project root to PYTHONPATH
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from pipeline.src.utils import load_yaml, load_parquet_from_gcs
 from pipeline.src.transform.results_utils import wide_to_long_results
 from pipeline.src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
 
+# --------------- Data Loading ---------------
 def read_data(config: dict) -> pd.DataFrame:
     df_results_clean = load_parquet_from_gcs(
         blob_name=config['output_files']['clean']['results'],
-        bucket_name=config['gcs']['bucket'])
+        bucket_name=config['gcs']['bucket']
+    )
     df_fighters_clean = load_parquet_from_gcs(
         blob_name=config['output_files']['clean']['fighters'],
-        bucket_name=config['gcs']['bucket'])
+        bucket_name=config['gcs']['bucket']
+    )
     df_events_clean = load_parquet_from_gcs(
         blob_name=config['output_files']['clean']['events'],
-        bucket_name=config['gcs']['bucket'])
+        bucket_name=config['gcs']['bucket']
+    )
     
     df_fighters_clean_opp = (
         df_fighters_clean[['fighter_url', 'full_name']]
-        .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"}))
+        .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"})
+    )
     
     df_results_long = df_results_clean.pipe(wide_to_long_results)
     df = (
@@ -41,7 +46,7 @@ def read_data(config: dict) -> pd.DataFrame:
     )
     return df
 
-# Full DataFrame with computed stats
+# Build full dataframe and computed stats
 df = (
     read_data(config=load_yaml(os.path.join('pipeline', 'config', 'config.yaml')))
     .assign(result_method=lambda x: x['result'].str.lower() + '_' + x['method_type'].str.lower())
@@ -53,14 +58,57 @@ df = (
         row_count_col='total_fights'
     )
 )
-
 df_current = df.pipe(
     subset_most_recent_fight,
     fighter_col='fighter_url',
     date_col='date'
 )
 
-# Create a grouped bar chart for fight outcomes (wins vs losses)
+# --------------- Overall Distribution Calculation ---------------
+def compute_fighter_avg_interval(df):
+    """Compute the average time between fights for each fighter."""
+    def avg_interval(dates):
+        if len(dates) > 1:
+            sorted_dates = sorted(dates)
+            total_span = sorted_dates[-1] - sorted_dates[0]
+            return total_span.days / (len(sorted_dates) - 1)
+        return None
+    return df.groupby('fighter_url')['date'].apply(lambda x: avg_interval(x.tolist())).dropna()
+
+overall_avg_intervals = compute_fighter_avg_interval(df)
+
+
+# Create histogram figure for overall average intervals with more granularity and a wider layout
+def build_histogram(series: pd.Series, nbins: int = 40, width: int = 1000, height: int = 500,
+                    label: str = 'Value', title: str = 'Distribution'):
+    """
+    Create a histogram for a given numeric pandas Series.
+
+    Parameters:
+      series (pd.Series): The data to plot.
+      nbins (int): Number of bins for the histogram.
+      width (int): Width of the histogram figure.
+      height (int): Height of the histogram figure.
+      label (str): Axis label for the x-axis.
+      title (str): Title of the histogram.
+
+    Returns:
+      fig: A Plotly Express histogram figure.
+    """
+    fig = px.histogram(
+        x=series,
+        nbins=nbins,
+        labels={'x': label},
+        title=title
+    )
+    fig.update_layout(width=width, height=height)
+    return fig
+
+
+hist_fig = build_histogram(overall_avg_intervals, label='Avg Interval (days)', title='Distribution of Average Time Between Fights')
+
+
+# --------------- Visualization ---------------
 def create_stats_figure(fighter):
     outcome_categories = ['Knockout', 'Submission', 'Decision']
     wins = [
@@ -73,7 +121,6 @@ def create_stats_figure(fighter):
         fighter.get('total_loss_submission', 0),
         fighter.get('total_loss_decision', 0)
     ]
-    
     fig = go.Figure(data=[
         go.Bar(name='Wins', x=outcome_categories, y=wins, marker_color='green'),
         go.Bar(name='Losses', x=outcome_categories, y=losses, marker_color='red')
@@ -88,20 +135,19 @@ def create_stats_figure(fighter):
     )
     return fig
 
-# Initialize the Dash app with Bootstrap styling
+# --------------- Dash App Setup ---------------
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-app.title = "MMA Fighter Dashboard"
+app.title = "UFC Fighter Dashboard"
 
 app.layout = dbc.Container([
-    html.H1("MMA Fighter Dashboard", className="my-4 text-center"),
-    
+    html.H1("UFC Fighter Dashboard", className="my-4 text-center"),
     dbc.Row([
         dbc.Col(
             dcc.Dropdown(
                 id='fighter-dropdown',
                 options=[
                     {'label': row['full_name'], 'value': row['fighter_url']}
-                    for _, row in df_current.iterrows()
+                    for _, row in df_current.sort_values('full_name').iterrows()
                 ],
                 placeholder="Select a fighter",
                 clearable=True,
@@ -110,60 +156,99 @@ app.layout = dbc.Container([
             width={"size": 6, "offset": 3}
         )
     ], className="mb-4"),
-    
     dbc.Row([
         dbc.Col(id='fighter-profile', width=12)
     ])
 ], fluid=True)
 
-@app.callback(
-    Output('fighter-profile', 'children'),
-    Input('fighter-dropdown', 'value')
-)
-def update_profile(selected_fighter_url):
-    if not selected_fighter_url:
-        return html.Div("Please select a fighter from the dropdown above.", className="mt-4 text-center")
-    
-    # Retrieve fighter record (for overall stats) and filter fights for table
-    fighter = df_current[df_current['fighter_url'] == selected_fighter_url].iloc[0]
-    fighter_fights = df[df['fighter_url'] == selected_fighter_url].sort_values(by='date', ascending=False).copy()
-    
-    # Format the date nicely for the profile card and table
-    fight_date = fighter['date'].strftime('%B %d, %Y') if hasattr(fighter['date'], 'strftime') else fighter['date']
-    fighter_fights['date'] = fighter_fights['date'].apply(lambda d: d.strftime('%B %d, %Y') if hasattr(d, 'strftime') else d)
-    
-    # Compute UFC record from cumulative stats
+# --------------- Helper Functions for Calculations ---------------
+def calculate_age(birth_date):
+    today = datetime.today()
+    return (today - birth_date).days // 365
+
+def calculate_time_since_last_fight(last_fight_date):
+    today = datetime.today()
+    return today - last_fight_date
+
+def calculate_average_time_between_fights(fight_dates):
+    if len(fight_dates) <= 1:
+        return None
+    sorted_dates = sorted(fight_dates)
+    total_span = sorted_dates[-1] - sorted_dates[0]
+    return total_span / (len(sorted_dates) - 1)
+
+def compute_additional_stats(fighter, fights_df):
+    age = calculate_age(fighter['date_of_birth'])
+    time_since_last = calculate_time_since_last_fight(fighter['date'])
+    fight_dates = fights_df['date'].tolist()
+    avg_interval = calculate_average_time_between_fights(fight_dates)
+    return {
+        'age': age,
+        'time_since_last_days': time_since_last.days,
+        'avg_interval_days': avg_interval.days if avg_interval is not None else "N/A"
+    }
+
+# --------------- Helper Functions for UI Components ---------------
+def build_fighter_info_card(fighter, stats):
+    fight_date_disp = fighter['date'].strftime('%B %d, %Y') if hasattr(fighter['date'], 'strftime') else fighter['date']
     ufc_record = f"{fighter.get('total_win', 0)}-{fighter.get('total_loss', 0)}-{fighter.get('total_draw', 0)}"
+    total_fight_time_str = str(timedelta(seconds=int(fighter.get('total_fight_duration_seconds', 0))))
     
-    # Convert total fight duration (seconds) to HH:MM:SS format
-    total_fight_time = str(datetime.timedelta(seconds=int(fighter.get('total_fight_duration_seconds', 0))))
-    
-    # Build the Fighter Info Card
-    info_card = dbc.Card(
+    return dbc.Card(
         [
             dbc.CardHeader(html.H3(fighter['full_name'], className="text-center")),
             dbc.CardBody([
-                html.H5("Fighter Info", className="card-title"),
+                # Personal Information
+                html.H5("Personal Information", className="mb-2"),
                 html.P(f"Nickname: {fighter['nickname']}" if fighter['nickname'] else "Nickname: N/A"),
+                html.P(f"Birth Date: {fighter['date_of_birth'].strftime('%B %d, %Y') if hasattr(fighter['date_of_birth'], 'strftime') else fighter['date_of_birth']}"),
+                html.P(f"Age: {stats['age']} years"),
                 html.P(f"Overall Record: {fighter['record']}"),
                 html.P(f"UFC Record: {ufc_record}"),
                 html.Hr(),
-                html.H6("Physical Attributes:"),
-                html.P(f"Height: {fighter['height']}"),
-                html.P(f"Reach: {fighter['reach']}"),
+                # Physical Attributes
+                html.H5("Physical Attributes", className="mb-2"),
+                html.P(f"Height: {fighter['height']} ({round(fighter['height_cm'], 2)} cm)"),
+                html.P(f"Reach: {fighter['reach']} ({round(fighter['reach_cm'], 2)} cm)"),
                 html.P(f"Stance: {fighter['stance']}"),
                 html.Hr(),
-                html.H6("Recent Fight Details:"),
+                # Career Metrics
+                html.H5("Career Metrics", className="mb-2"),
+                html.P(f"Time Since Last Fight: {stats['time_since_last_days']} days"),
+                html.P([
+                    "Average Time Between Fights: ",
+                    html.Span(f"{stats['avg_interval_days']} days", id="avg-interval-target")
+                ]),
+                dbc.Popover(
+                    [
+                        dbc.PopoverHeader("Avg Time Distribution"),
+                        dbc.PopoverBody(
+                            dcc.Graph(
+                                id="histogram-graph",
+                                figure=hist_fig,
+                                config={"displayModeBar": False}
+                            )
+                        ),
+                    ],
+                    id="avg-interval-popover",
+                    target="avg-interval-target",
+                    trigger="hover"
+                ),
+                html.P(f"Total Fight Time: {total_fight_time_str}"),
+                html.Hr(),
+                # Recent Fight Details
+                html.H5("Recent Fight Details", className="mb-2"),
                 html.P(f"Outcome: {fighter['result']}"),
                 html.P(f"Event: {fighter['event']}"),
-                html.P(f"Date: {fight_date}")
+                html.P(f"Fight Date: {fight_date_disp}")
             ])
         ],
         className="mb-4 shadow"
     )
-    
-    # Build the Stats & Bonuses Card
-    stats_card = dbc.Card(
+
+def build_stats_card(fighter):
+    # Now combine Title Fights, Performance Bonuses, and Fight of the Night in one row.
+    return dbc.Card(
         [
             dbc.CardHeader(html.H4("Cumulative Statistics", className="text-center")),
             dbc.CardBody([
@@ -174,95 +259,98 @@ def update_profile(selected_fighter_url):
                 html.Hr(),
                 dbc.Row([
                     dbc.Col(html.Div([
-                        html.H6("Total Fight Time:"),
-                        html.P(total_fight_time)
-                    ]), md=4),
-                    dbc.Col(html.Div([
                         html.H6("Title Fights:"),
                         html.P(fighter.get('total_title_fight', 0))
                     ]), md=4),
                     dbc.Col(html.Div([
                         html.H6("Performance Bonuses:"),
                         html.P(fighter.get('total_perf_bonus', 0))
-                    ]), md=4)
-                ], className="mb-3"),
-                dbc.Row([
+                    ]), md=4),
                     dbc.Col(html.Div([
                         html.H6("Fight of the Night:"),
                         html.P(fighter.get('total_fight_of_the_night', 0))
                     ]), md=4)
-                ])
+                ], className="mb-3")
             ])
         ],
         className="mb-4 shadow"
     )
+
+def build_fight_history_table(fights_df):
+    fights = fights_df.copy()
+    fights['fight_duration'] = fights['fight_duration_seconds'].apply(lambda s: str(timedelta(seconds=int(s))))
+    fights['date'] = fights['date'].apply(lambda d: d.strftime('%B %d, %Y') if hasattr(d, 'strftime') else d)
+    table_columns = ["date", "event", "weight_class", "opp_full_name", "method", "round", "time", "result",
+                     "fight_duration", "title_fight", "perf_bonus", "fight_of_the_night"]
+    table_data = fights[table_columns].to_dict('records')
     
-    # Prepare Fight History Table
-    # Create a friendly "Fight Duration" column by converting seconds to HH:MM:SS
-    fighter_fights['fight_duration'] = fighter_fights['fight_duration_seconds'].apply(
-        lambda s: str(datetime.timedelta(seconds=int(s)))
-    )
-    # Define the columns to display
-    table_columns = ["date", "event", "weight_class", "opp_full_name","method", "round", "time", "result",
-                      "fight_duration", 'fight_duration_seconds',
-                     "title_fight", "perf_bonus", "fight_of_the_night"]
-    table_data = fighter_fights[table_columns].to_dict('records')
-    
-    fight_table = dash_table.DataTable(
-        id='fight-table',
-        columns=[{"name": col.replace('_', ' ').title(), "id": col} for col in table_columns],
-        data=table_data,
-        style_table={'overflowX': 'auto'},
-        style_cell={
-            'textAlign': 'left',
-            'padding': '10px',
-            'minWidth': '100px',
-            'width': '100px',
-            'maxWidth': '150px',
-            'whiteSpace': 'normal'
-        },
-        style_header={
-            'backgroundColor': 'rgb(230, 230, 230)',
-            'fontWeight': 'bold'
-        },
-        style_data_conditional=[
-            {
-                'if': {
-                    'column_id': 'result',
-                    'filter_query': '{result} eq "Win"'
-                },
-                'color': 'green'
-            },
-            {
-                'if': {
-                    'column_id': 'result',
-                    'filter_query': '{result} eq "Loss"'
-                },
-                'color': 'red'
-            }
-        ],
-        page_size=10,
-    )
-        
-    table_card = dbc.Card(
+    return dbc.Card(
         [
             dbc.CardHeader(html.H4("Fight History", className="text-center")),
-            dbc.CardBody([fight_table])
+            dbc.CardBody([
+                dash_table.DataTable(
+                    id='fight-table',
+                    columns=[{"name": col.replace('_', ' ').title(), "id": col} for col in table_columns],
+                    data=table_data,
+                    style_table={'overflowX': 'auto'},
+                    style_cell={
+                        'textAlign': 'left',
+                        'padding': '10px',
+                        'minWidth': '100px',
+                        'width': '100px',
+                        'maxWidth': '150px',
+                        'whiteSpace': 'normal'
+                    },
+                    style_header={
+                        'backgroundColor': 'rgb(230, 230, 230)',
+                        'fontWeight': 'bold'
+                    },
+                    style_data_conditional=[
+                        {
+                            'if': {
+                                'column_id': 'result',
+                                'filter_query': '{result} eq "Win"'
+                            },
+                            'color': 'green'
+                        },
+                        {
+                            'if': {
+                                'column_id': 'result',
+                                'filter_query': '{result} eq "Loss"'
+                            },
+                            'color': 'red'
+                        }
+                    ],
+                    page_size=10,
+                )
+            ])
         ],
         className="mb-4 shadow"
     )
+
+# --------------- Modularized Callback ---------------
+@app.callback(
+    Output('fighter-profile', 'children'),
+    Input('fighter-dropdown', 'value')
+)
+def update_profile(selected_fighter_url):
+    if not selected_fighter_url:
+        return html.Div("Please select a fighter from the dropdown above.", className="mt-4 text-center")
     
-    # Arrange the layout: top row with two cards, then the fight history table in a new row.
+    fighter = df_current[df_current['fighter_url'] == selected_fighter_url].iloc[0]
+    fighter_fights_all = df[df['fighter_url'] == selected_fighter_url].sort_values(by='date', ascending=False).copy()
+    
+    stats = compute_additional_stats(fighter, fighter_fights_all)
+    
+    info_card = build_fighter_info_card(fighter, stats)
+    stats_card = build_stats_card(fighter)
+    table_card = build_fight_history_table(fighter_fights_all)
+    
     return dbc.Container([
-        dbc.Row([
-            dbc.Col(info_card, md=4),
-            dbc.Col(stats_card, md=8)
-        ]),
-        dbc.Row([
-            dbc.Col(table_card, md=12)
-        ])
+        dbc.Row([dbc.Col(info_card, md=4), dbc.Col(stats_card, md=8)]),
+        dbc.Row([dbc.Col(table_card, md=12)])
     ], fluid=True)
 
 if __name__ == '__main__':
-    app.run_server(host='0.0.0.0', port=8050, debug=True)
-
+    port = int(os.environ.get("PORT", 8080))
+    app.run_server(host='0.0.0.0', port=port, debug=True)

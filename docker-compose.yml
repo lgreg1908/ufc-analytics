@@ -1,0 +1,26 @@
+services:
+  pipeline_scrape:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    command: scripts.scrape
+
+
+  pipeline_clean:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    command: scripts.clean
+
+  pipeline_dummy:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    command: scripts.dummy
+    
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    ports:
+      - "8080:8080"
