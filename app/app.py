@@ -17,6 +17,14 @@ from pipeline.src.transform.utils import add_all_cumsum_columns, subset_most_rec
 
 # --------------- Data Loading ---------------
 def read_data(config: dict) -> pd.DataFrame:
+    """
+    Loads and preprocess the dataset for the app.
+
+        1. Loads the cleaned results, fighter, events dataframes.
+        2. Transforms the results into wide format.
+        3. Merges the other dataframes
+        4. Sorts by date, fight, fighter
+    """
     df_results_clean = load_parquet_from_gcs(
         blob_name=config['output_files']['clean']['results'],
         bucket_name=config['gcs']['bucket']
@@ -35,9 +43,8 @@ def read_data(config: dict) -> pd.DataFrame:
         .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"})
     )
     
-    df_results_long = df_results_clean.pipe(wide_to_long_results)
     df = (
-        df_results_long
+        df_results_clean.pipe(wide_to_long_results)
         .merge(df_fighters_clean, on='fighter_url')
         .merge(df_fighters_clean_opp, on='opp_url')
         .merge(df_events_clean, on='event_url')
@@ -76,24 +83,14 @@ def compute_fighter_avg_interval(df):
     return df.groupby('fighter_url')['date'].apply(lambda x: avg_interval(x.tolist())).dropna()
 
 overall_avg_intervals = compute_fighter_avg_interval(df)
+# Also compute overall total fight time (in minutes) from seconds
+overall_total_fight_times = df['total_fight_duration_seconds'] / 60
 
-
-# Create histogram figure for overall average intervals with more granularity and a wider layout
+# --------------- Histograms ---------------
 def build_histogram(series: pd.Series, nbins: int = 40, width: int = 1000, height: int = 500,
-                    label: str = 'Value', title: str = 'Distribution'):
+                    label: str = 'Value', title: str = 'Distribution', highlight_value: float = None):
     """
-    Create a histogram for a given numeric pandas Series.
-
-    Parameters:
-      series (pd.Series): The data to plot.
-      nbins (int): Number of bins for the histogram.
-      width (int): Width of the histogram figure.
-      height (int): Height of the histogram figure.
-      label (str): Axis label for the x-axis.
-      title (str): Title of the histogram.
-
-    Returns:
-      fig: A Plotly Express histogram figure.
+    Create a histogram for a given numeric pandas Series with an optional vertical line.
     """
     fig = px.histogram(
         x=series,
@@ -102,13 +99,32 @@ def build_histogram(series: pd.Series, nbins: int = 40, width: int = 1000, heigh
         title=title
     )
     fig.update_layout(width=width, height=height)
+    if highlight_value is not None:
+        fig.add_shape(
+            type='line',
+            x0=highlight_value,
+            x1=highlight_value,
+            yref='paper',
+            y0=0,
+            y1=1,
+            line=dict(color='orange', width=3, dash='dash')
+        )
     return fig
 
+# For the avg time between fights
+hist_avg_interval_fig = build_histogram(
+    overall_avg_intervals, 
+    label='Avg Interval (days)', 
+    title='Distribution of Avg Time Between Fights'
+)
+# For total fight time in minutes
+hist_total_fight_time_fig = build_histogram(
+    overall_total_fight_times, 
+    label='Total Fight Time (minutes)', 
+    title='Distribution of Total Fight Time (minutes)'
+)
 
-hist_fig = build_histogram(overall_avg_intervals, label='Avg Interval (days)', title='Distribution of Average Time Between Fights')
-
-
-# --------------- Visualization ---------------
+# --------------- Stats figure ---------------
 def create_stats_figure(fighter):
     outcome_categories = ['Knockout', 'Submission', 'Decision']
     wins = [
@@ -193,6 +209,23 @@ def build_fighter_info_card(fighter, stats):
     fight_date_disp = fighter['date'].strftime('%B %d, %Y') if hasattr(fighter['date'], 'strftime') else fighter['date']
     ufc_record = f"{fighter.get('total_win', 0)}-{fighter.get('total_loss', 0)}-{fighter.get('total_draw', 0)}"
     total_fight_time_str = str(timedelta(seconds=int(fighter.get('total_fight_duration_seconds', 0))))
+    # Convert fighter's total fight time to minutes for highlighting
+    fighter_total_minutes = fighter.get('total_fight_duration_seconds', 0) / 60
+
+    # Build the histogram for average interval with fighter's value highlighted
+    fighter_avg_hist = build_histogram(
+        overall_avg_intervals, 
+        label='Avg Interval (days)', 
+        title='Distribution of Avg Time Between Fights',
+        highlight_value=stats['avg_interval_days'] if isinstance(stats['avg_interval_days'], (int, float)) else None
+    )
+    # Build the histogram for total fight time in minutes with fighter's value highlighted
+    fighter_total_time_hist = build_histogram(
+        overall_total_fight_times, 
+        label='Total Fight Time (minutes)', 
+        title='Distribution of Total Fight Time (minutes)',
+        highlight_value=fighter_total_minutes
+    )
     
     return dbc.Card(
         [
@@ -224,8 +257,8 @@ def build_fighter_info_card(fighter, stats):
                         dbc.PopoverHeader("Avg Time Distribution"),
                         dbc.PopoverBody(
                             dcc.Graph(
-                                id="histogram-graph",
-                                figure=hist_fig,
+                                id="avg-histogram-graph",
+                                figure=fighter_avg_hist,
                                 config={"displayModeBar": False}
                             )
                         ),
@@ -234,7 +267,25 @@ def build_fighter_info_card(fighter, stats):
                     target="avg-interval-target",
                     trigger="hover"
                 ),
-                html.P(f"Total Fight Time: {total_fight_time_str}"),
+                html.P([
+                    "Total Fight Time: ",
+                    html.Span(total_fight_time_str, id="total-fight-time-target")
+                ]),
+                dbc.Popover(
+                    [
+                        dbc.PopoverHeader("Total Fight Time Distribution (minutes)"),
+                        dbc.PopoverBody(
+                            dcc.Graph(
+                                id="total-time-histogram",
+                                figure=fighter_total_time_hist,
+                                config={"displayModeBar": False}
+                            )
+                        ),
+                    ],
+                    id="total-fight-time-popover",
+                    target="total-fight-time-target",
+                    trigger="hover"
+                ),
                 html.Hr(),
                 # Recent Fight Details
                 html.H5("Recent Fight Details", className="mb-2"),
@@ -247,7 +298,6 @@ def build_fighter_info_card(fighter, stats):
     )
 
 def build_stats_card(fighter):
-    # Now combine Title Fights, Performance Bonuses, and Fight of the Night in one row.
     return dbc.Card(
         [
             dbc.CardHeader(html.H4("Cumulative Statistics", className="text-center")),
@@ -328,7 +378,7 @@ def build_fight_history_table(fights_df):
         className="mb-4 shadow"
     )
 
-# --------------- Modularized Callback ---------------
+# ---------------  Callback ---------------
 @app.callback(
     Output('fighter-profile', 'children'),
     Input('fighter-dropdown', 'value')
