@@ -15,7 +15,7 @@ class Round(BaseModel):
     sig_str: Optional[str] = None
     sig_str_pct: Optional[str] = None
     total_str: Optional[str] = None
-    td: Optional[str] = None           # <-- New field to capture takedowns (Td)
+    td: Optional[str] = None
     td_pct: Optional[str] = None
     sub_att: Optional[str] = None
     rev: Optional[str] = None
