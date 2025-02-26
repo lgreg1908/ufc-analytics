@@ -65,15 +65,6 @@ df_current = df.pipe(
 )
 
 # --------------- Overall Distribution Calculation ---------------
-def summarize_series(series: pd.Series) -> str:
-    """Return a summary string (mean, median, std, range) for the given series."""
-    mean_val = series.mean()
-    median_val = series.median()
-    std_val = series.std()
-    min_val = series.min()
-    max_val = series.max()
-    return f"Mean: {mean_val:.1f} days, Median: {median_val:.1f} days, Std: {std_val:.1f} days, Range: {min_val:.0f}-{max_val:.0f} days"
-
 def compute_fighter_avg_interval(df):
     """Compute the average time between fights for each fighter."""
     def avg_interval(dates):
@@ -85,16 +76,36 @@ def compute_fighter_avg_interval(df):
     return df.groupby('fighter_url')['date'].apply(lambda x: avg_interval(x.tolist())).dropna()
 
 overall_avg_intervals = compute_fighter_avg_interval(df)
-distribution_summary = summarize_series(overall_avg_intervals)
+
 
 # Create histogram figure for overall average intervals with more granularity and a wider layout
-hist_fig = px.histogram(
-    x=overall_avg_intervals, 
-    nbins=40,  # Increase the number of bins for a more granular view
-    labels={'x': 'Avg Interval (days)'}, 
-    title="Distribution of Average Time Between Fights"
-)
-hist_fig.update_layout(width=1000, height=500)  # Make the histogram wider and set a custom height
+def build_histogram(series: pd.Series, nbins: int = 40, width: int = 1000, height: int = 500,
+                    label: str = 'Value', title: str = 'Distribution'):
+    """
+    Create a histogram for a given numeric pandas Series.
+
+    Parameters:
+      series (pd.Series): The data to plot.
+      nbins (int): Number of bins for the histogram.
+      width (int): Width of the histogram figure.
+      height (int): Height of the histogram figure.
+      label (str): Axis label for the x-axis.
+      title (str): Title of the histogram.
+
+    Returns:
+      fig: A Plotly Express histogram figure.
+    """
+    fig = px.histogram(
+        x=series,
+        nbins=nbins,
+        labels={'x': label},
+        title=title
+    )
+    fig.update_layout(width=width, height=height)
+    return fig
+
+
+hist_fig = build_histogram(overall_avg_intervals, label='Avg Interval (days)', title='Distribution of Average Time Between Fights')
 
 
 # --------------- Visualization ---------------
@@ -181,6 +192,7 @@ def compute_additional_stats(fighter, fights_df):
 def build_fighter_info_card(fighter, stats):
     fight_date_disp = fighter['date'].strftime('%B %d, %Y') if hasattr(fighter['date'], 'strftime') else fighter['date']
     ufc_record = f"{fighter.get('total_win', 0)}-{fighter.get('total_loss', 0)}-{fighter.get('total_draw', 0)}"
+    total_fight_time_str = str(timedelta(seconds=int(fighter.get('total_fight_duration_seconds', 0))))
     
     return dbc.Card(
         [
@@ -196,11 +208,11 @@ def build_fighter_info_card(fighter, stats):
                 html.Hr(),
                 # Physical Attributes
                 html.H5("Physical Attributes", className="mb-2"),
-                html.P(f"Height: {fighter['height']} ({fighter['height_cm']} cm)"),
-                html.P(f"Reach: {fighter['reach']} ({fighter['reach_cm']} cm)"),
+                html.P(f"Height: {fighter['height']} ({round(fighter['height_cm'], 2)} cm)"),
+                html.P(f"Reach: {fighter['reach']} ({round(fighter['reach_cm'], 2)} cm)"),
                 html.P(f"Stance: {fighter['stance']}"),
                 html.Hr(),
-                # Career Metrics with Popover for Histogram
+                # Career Metrics
                 html.H5("Career Metrics", className="mb-2"),
                 html.P(f"Time Since Last Fight: {stats['time_since_last_days']} days"),
                 html.P([
@@ -222,6 +234,7 @@ def build_fighter_info_card(fighter, stats):
                     target="avg-interval-target",
                     trigger="hover"
                 ),
+                html.P(f"Total Fight Time: {total_fight_time_str}"),
                 html.Hr(),
                 # Recent Fight Details
                 html.H5("Recent Fight Details", className="mb-2"),
@@ -234,6 +247,7 @@ def build_fighter_info_card(fighter, stats):
     )
 
 def build_stats_card(fighter):
+    # Now combine Title Fights, Performance Bonuses, and Fight of the Night in one row.
     return dbc.Card(
         [
             dbc.CardHeader(html.H4("Cumulative Statistics", className="text-center")),
@@ -245,24 +259,18 @@ def build_stats_card(fighter):
                 html.Hr(),
                 dbc.Row([
                     dbc.Col(html.Div([
-                        html.H6("Total Fight Time:"),
-                        html.P(str(timedelta(seconds=int(fighter.get('total_fight_duration_seconds', 0)))))
-                    ]), md=4),
-                    dbc.Col(html.Div([
                         html.H6("Title Fights:"),
                         html.P(fighter.get('total_title_fight', 0))
                     ]), md=4),
                     dbc.Col(html.Div([
                         html.H6("Performance Bonuses:"),
                         html.P(fighter.get('total_perf_bonus', 0))
-                    ]), md=4)
-                ], className="mb-3"),
-                dbc.Row([
+                    ]), md=4),
                     dbc.Col(html.Div([
                         html.H6("Fight of the Night:"),
                         html.P(fighter.get('total_fight_of_the_night', 0))
                     ]), md=4)
-                ])
+                ], className="mb-3")
             ])
         ],
         className="mb-4 shadow"
