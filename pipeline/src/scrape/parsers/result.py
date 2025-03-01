@@ -6,6 +6,22 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 class Result(BaseModel):
+    """
+    A Pydantic model representing the results of a UFC fight.
+    
+    Attributes:
+        fight_url (str): URL linking to detailed fight information.
+        event_url (Optional[str]): URL linking to the event details; may be None if unavailable.
+        winner (str): Name or identifier of the winning fighter.
+        fighters_urls (List[str]): List of URLs to the fighters' profiles or information.
+        weight_class (str): The weight class in which the fight took place.
+        method (str): The method of victory (e.g., KO, submission, decision).
+        round (str): The round in which the fight concluded.
+        time (str): The time within the round when the fight ended.
+        title_fight (bool): Indicates whether the fight was for a title (default: False).
+        perf_bonus (bool): Indicates whether a performance bonus was awarded (default: False).
+        fight_of_the_night (bool): Indicates whether the fight was awarded Fight of the Night (default: False).
+    """
     fight_url: str
     event_url: Optional[str]= Field(default=None)
     winner: str

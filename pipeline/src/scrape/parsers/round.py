@@ -8,6 +8,29 @@ from pipeline.src.scrape.parsers.utils import combine_dicts, normalize_headers
 logger = logging.getLogger(__name__)
 
 class Round(BaseModel):
+    """
+    A Pydantic model representing the round of a UFC fight.
+    
+    Attributes:
+        round (int): The round number of the fight.
+        fight_url (str): The URL linking to detailed information about the fight.
+        fighter (str): The name or identifier of the fighter in the round.
+        kd (Optional[str]): The number of knockdowns recorded, if available.
+        sig_str (Optional[str]): The number of significant strikes landed.
+        sig_str_pct (Optional[str]): The percentage of significant strikes landed.
+        total_str (Optional[str]): The total number of strikes thrown.
+        td (Optional[str]): The number of takedowns executed.
+        td_pct (Optional[str]): The success percentage of takedowns.
+        sub_att (Optional[str]): The number of submission attempts made.
+        rev (Optional[str]): The number of reversals achieved.
+        ctrl (Optional[str]): The control time or control statistics during the round.
+        head (Optional[str]): The count of head strikes landed.
+        body (Optional[str]): The count of body strikes landed.
+        leg (Optional[str]): The count of leg strikes landed.
+        distance (Optional[str]): The count of distance strikes landed.
+        clinch (Optional[str]): The count of clinch strikes landed.
+        ground (Optional[str]): The count of ground strikes landed.
+    """
     round: int
     fight_url: str
     fighter: str
