@@ -14,7 +14,7 @@ def soup():
     Returns:
         BeautifulSoup: Parsed HTML content.
     """
-    with open('tests/data/test_rounds.html', 'r', encoding='utf-8') as file:
+    with open('pipeline/tests/data/test_rounds.html', 'r', encoding='utf-8') as file:
         content = file.read()
     return BeautifulSoup(content, 'html.parser')
 
