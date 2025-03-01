@@ -7,39 +7,24 @@ def extract_location_parts(location_series: pd.Series) -> pd.DataFrame:
     Given a Series of location strings (e.g. "City, State, Country" or "City, Country"),
     split them into components in a vectorized manner.
     
-    Logic:
-      - Split by comma.
-      - Strip whitespace.
-      - If three or more parts: assign the first part as city, the second as state,
-        and the last part as country.
-      - If two parts: assign the first as city and second as country, with state left as NaN.
+    For each location string:
+      - If there are three or more non-empty parts, assign:
+          city = first part, state = second part, country = last part.
+      - If there are exactly two parts, assign:
+          city = first part, state = NaN, country = second part.
       - Otherwise, return NaN for missing values.
     """
-    # Split by comma. expand=True returns a DataFrame with as many columns as maximum splits.
-    parts = location_series.str.split(',', expand=True)
-    # Remove extra whitespace from every element
-    parts = parts.apply(lambda col: col.str.strip())
+    def split_location(loc):
+        # Split by comma, strip whitespace, and filter out empty parts.
+        parts = [p.strip() for p in loc.split(',') if p.strip() != ""]
+        if len(parts) >= 3:
+            return pd.Series({"city": parts[0], "state": parts[1], "country": parts[-1]})
+        elif len(parts) == 2:
+            return pd.Series({"city": parts[0], "state": np.nan, "country": parts[1]})
+        else:
+            return pd.Series({"city": parts[0] if parts else np.nan, "state": np.nan, "country": np.nan})
     
-    # Initialize a result DataFrame with the same index
-    res = pd.DataFrame(index=parts.index)
-    
-    # City is always the first element
-    res['city'] = parts[0]
-    
-    # Determine assignment based on how many columns were produced.
-    if parts.shape[1] >= 3:
-        # e.g. "Sydney, New South Wales, Australia"
-        res['state'] = parts[1]
-        res['country'] = parts.iloc[:, -1]  # Last column
-    elif parts.shape[1] == 2:
-        # e.g. "Macau, China"
-        res['state'] = np.nan
-        res['country'] = parts[1]
-    else:
-        res['state'] = np.nan
-        res['country'] = np.nan
-
-    return res
+    return location_series.apply(split_location)
 
 def convert_height_to_cm(height_series: pd.Series) -> pd.Series:
     """
