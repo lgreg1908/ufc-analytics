@@ -1,6 +1,6 @@
 import pytest
 from bs4 import BeautifulSoup
-from src.scrape.parsers.rounds import parse_rounds, Round
+from src.scrape.parsers.round import parse_rounds, Round
 
 
 @pytest.fixture
