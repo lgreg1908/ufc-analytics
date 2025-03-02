@@ -12,7 +12,7 @@ import plotly.express as px
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from pipeline.src.utils import load_yaml, load_parquet_from_gcs
-from pipeline.src.transform.results_utils import wide_to_long_results
+from pipeline.src.transform.results_transformer import wide_to_long_results
 from pipeline.src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
 
 # --------------- Data Loading ---------------
