@@ -4,7 +4,6 @@ import pytest
 import datetime
 from pytest import approx
 
-# Adjust the import path as needed.
 from pipeline.src.clean.cleaners import FighterCleaner
 
 # Sample test for valid and invalid data

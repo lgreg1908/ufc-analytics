@@ -3,7 +3,6 @@ import numpy as np
 import pytest
 from pytest import approx
 
-# Adjust the import path as needed.
 from pipeline.src.clean.cleaners import RoundsCleaner
 
 def test_rounds_cleaner_valid_data():
