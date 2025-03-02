@@ -1,10 +1,8 @@
-import logging
 from typing import List, TypeVar, Union, Dict, Any
 from pathlib import Path
 import json
 from pydantic import BaseModel
 
-logger = logging.getLogger(__name__)
 T = TypeVar('T', bound=BaseModel)
 
 def ensure_directory_exists(filepath: Union[str, Path]) -> None:
@@ -59,19 +57,9 @@ def get_event_urls(events_data: List[Dict[str, Any]]) -> List[str]:
     Returns:
         List[str]: A list of event URLs extracted from the 'event_url' field.
 
-    Raises:
-        Exception: If an unexpected error occurs.
     """
-    try:
-        # Extract the event URLs from the 'event_url' field
-        event_urls = [event['event_url'] for event in events_data]
-        logger.info(f"Successfully extracted {len(event_urls)} event URLs.")
-        return event_urls
-
-    except Exception as e:
-        logger.error(f"An unexpected error occurred while extracting event URLs: {e}")
-        raise
-
+    event_urls = [event['event_url'] for event in events_data]
+    return event_urls
 
 def get_fighter_urls(results_data: List[Dict[str, Any]]) -> List[str]:
     """
@@ -85,25 +73,18 @@ def get_fighter_urls(results_data: List[Dict[str, Any]]) -> List[str]:
     Raises:
         Exception: If an unexpected error occurs.
     """
-    try:
 
-        # Check if 'fighters_urls' is present in each fight result
-        all_fighter_urls = []
-        for fight in results_data:
-            if 'fighters_urls' not in fight:
-                logger.error("'fighters_urls' field is missing in the data.")
-                raise ValueError("'fighters_urls' field is missing in the data.")
-            # Append all fighter URLs from the current fight
-            all_fighter_urls.extend(fight['fighters_urls'])
+    # Check if 'fighters_urls' is present in each fight result
+    all_fighter_urls = []
+    for fight in results_data:
+        if 'fighters_urls' not in fight:
+            raise ValueError("'fighters_urls' field is missing in the data.") from e
+        # Append all fighter URLs from the current fight
+        all_fighter_urls.extend(fight['fighters_urls'])
 
-        # Get all unique fighter URLs and return them
-        unique_fighter_urls = list(set(all_fighter_urls))
-        logger.info(f"Successfully extracted {len(unique_fighter_urls)} unique fighter URLs.")
-        return unique_fighter_urls
-
-    except Exception as e:
-        logger.error(f"An unexpected error occurred while extracting fighter URLs: {e}")
-        raise
+    # Get all unique fighter URLs and return them
+    unique_fighter_urls = list(set(all_fighter_urls))
+    return unique_fighter_urls
 
 
 def get_fight_urls(results_data: List[Dict[str, Any]]) -> List[str]:
@@ -118,21 +99,14 @@ def get_fight_urls(results_data: List[Dict[str, Any]]) -> List[str]:
     Raises:
         Exception: If an unexpected error occurs.
     """
-    try:
-        # Check if 'fight_url' is present in each fight result
-        fight_urls = []
-        for fight in results_data:
-            if 'fight_url' not in fight:
-                logger.error("'fight_url' field is missing in the data.")
-                raise ValueError("'fight_url' field is missing in the data.")
-            # Append the fight URL to the list
-            fight_urls.append(fight['fight_url'])
+    # Check if 'fight_url' is present in each fight result
+    fight_urls = []
+    for fight in results_data:
+        if 'fight_url' not in fight:
+            raise ValueError("'fight_url' field is missing in the data.")
+        # Append the fight URL to the list
+        fight_urls.append(fight['fight_url'])
 
-        # Get all unique fight URLs and return them
-        unique_fight_urls = list(set(fight_urls))
-        logger.info(f"Successfully extracted {len(unique_fight_urls)} unique fight URLs.")
-        return unique_fight_urls
-
-    except Exception as e:
-        logger.error(f"An unexpected error occurred while extracting fight URLs: {e}")
-        raise
+    # Get all unique fight URLs and return them
+    unique_fight_urls = list(set(fight_urls))
+    return unique_fight_urls
