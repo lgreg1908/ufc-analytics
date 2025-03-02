@@ -101,7 +101,6 @@ def split_method(method_str):
         # Only take the first two parts
         return pd.Series([parts[0], parts[1]])
     
-
 def parse_percentage(series: pd.Series) -> pd.Series:
     """
     Convert a Series of percentage strings (e.g. "14%") to a numeric Series.
