@@ -2,9 +2,9 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_series_equal, assert_frame_equal
 
-from src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
+from pipeline.src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
 
-def test_dummy_only():
+def test_add_all_cumsum_columns_dummy_only():
     # Create a DataFrame with a dummy (categorical) column.
     df = pd.DataFrame({
         "fighter_url": ["A", "A", "A", "B", "B"],
@@ -30,7 +30,7 @@ def test_dummy_only():
     assert "win" not in result_df.columns
     assert "loss" not in result_df.columns
 
-def test_numerical_only():
+def test_add_all_cumsum_columns_numerical_only():
     # Create a DataFrame with a numerical column (with non-numeric values included).
     df = pd.DataFrame({
         "fighter_url": ["A", "A", "B", "B"],
@@ -53,7 +53,7 @@ def test_numerical_only():
     # Verify that the original 'score' column is numeric.
     assert_series_equal(result_df["score"], expected_score)
 
-def test_both_dummy_numerical():
+def test_add_all_cumsum_columns_both_dummy_numerical():
     # Create a DataFrame with both a dummy column and a numerical column.
     df = pd.DataFrame({
         "fighter_url": ["A", "A", "B", "B", "B"],
@@ -87,7 +87,7 @@ def test_both_dummy_numerical():
     assert "win" not in result_df.columns
     assert "loss" not in result_df.columns
 
-def test_custom_prefix_and_row_count():
+def test_add_all_cumsum_columns_custom_prefix_and_row_count():
     # Create a DataFrame and specify custom prefix and row count column name.
     df = pd.DataFrame({
         "group": ["X", "X", "Y"],
@@ -123,7 +123,7 @@ def test_custom_prefix_and_row_count():
     assert "yes" not in result_df.columns
     assert "no" not in result_df.columns
 
-def test_non_string_dummy_column():
+def test_add_all_cumsum_columns_non_string_dummy_column():
     # Test when the dummy column is not of string dtype.
     df = pd.DataFrame({
         "group": ["G1", "G1", "G2", "G2"],
@@ -152,7 +152,7 @@ def test_non_string_dummy_column():
     assert 1 not in result_df.columns
     assert 2 not in result_df.columns
 
-def test_empty_dataframe():
+def test_add_all_cumsum_columns_empty_dataframe():
     # Test behavior on an empty DataFrame.
     df = pd.DataFrame(columns=["group", "dummy", "num"])
     result_df = add_all_cumsum_columns(
@@ -161,7 +161,7 @@ def test_empty_dataframe():
     # The result should be an empty DataFrame.
     assert result_df.empty
 
-def test_basic():
+def test_subset_most_recent_fight_basic():
     # Basic case: multiple fighters with valid dates.
     data = {
         "fighter": ["A", "A", "B", "B", "C"],
@@ -180,7 +180,7 @@ def test_basic():
     
     assert_frame_equal(result, expected)
 
-def test_invalid_dates():
+def test_subset_most_recent_fight_invalid_dates():
     # Some rows contain invalid dates; those rows should be dropped.
     data = {
         "fighter": ["A", "A", "B", "B"],
@@ -199,7 +199,7 @@ def test_invalid_dates():
     
     assert_frame_equal(result, expected)
 
-def test_all_invalid_dates():
+def test_subset_most_recent_fight_all_invalid_dates():
     # When all date entries are invalid, the result should be an empty DataFrame.
     data = {
         "fighter": ["A", "B"],
@@ -215,7 +215,7 @@ def test_all_invalid_dates():
     assert result.empty
     assert list(result.columns) == list(expected.columns)
 
-def test_same_date():
+def test_subset_most_recent_fight_same_date():
     # When a fighter has multiple fights on the same date, idxmax() returns the first occurrence.
     data = {
         "fighter": ["A", "A", "B"],
@@ -234,7 +234,7 @@ def test_same_date():
     
     assert_frame_equal(result, expected)
 
-def test_empty_dataframe():
+def test_subset_most_recent_fight_empty_dataframe():
     # An empty DataFrame should return an empty DataFrame with the same columns.
     df = pd.DataFrame(columns=["fighter", "fight_date", "score"])
     result = subset_most_recent_fight(df, "fighter", "fight_date")
