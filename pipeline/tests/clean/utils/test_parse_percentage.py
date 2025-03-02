@@ -4,7 +4,7 @@ import pytest
 
 from pipeline.src.clean.utils import parse_percentage
 
-def test_parse_percentage_vectorized():
+def test_parse_percentage():
     """
     Test conversion on a Series containing multiple percentage strings.
     """

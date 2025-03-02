@@ -4,7 +4,7 @@ import pytest
 
 from pipeline.src.clean.utils import parse_fraction
 
-def test_parse_fraction_vectorized():
+def test_parse_fraction():
     """
     Test the conversion on a Series containing multiple fraction strings at once.
     """
