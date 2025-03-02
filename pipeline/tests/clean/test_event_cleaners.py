@@ -1,7 +1,5 @@
 import pandas as pd
-import numpy as np
 import pytest
-from datetime import datetime
 
 from pipeline.src.clean.cleaners import EventsCleaner
 from pipeline.src.clean.utils import extract_location_parts
