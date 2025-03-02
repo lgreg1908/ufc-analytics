@@ -3,13 +3,12 @@ import logging
 from unittest.mock import patch, MagicMock
 import pytest
 from typing import Any
-from src.logger import (
+from pipeline.src.logger import (
     setup_logger, 
     ensure_log_directory_exists, 
     create_console_handler, 
     create_file_handler, 
-    LoggerSetupError,
-    RotatingFileHandler)
+    LoggerSetupError)
 
 # Test for ensuring the log directory exists
 @patch('os.makedirs')
@@ -48,7 +47,7 @@ def test_create_console_handler_invalid_level() -> None:
     with pytest.raises(LoggerSetupError, match="Invalid log level"):
         create_console_handler('INVALID_LEVEL')
 
-@patch('src.logger.RotatingFileHandler')  # Ensure this path matches your module's import path
+@patch('pipeline.src.logger.RotatingFileHandler')
 def test_create_file_handler_valid(mock_rotating_file_handler: Any) -> None:
     """
     Test that create_file_handler creates a valid file handler with rotation.
@@ -57,7 +56,7 @@ def test_create_file_handler_valid(mock_rotating_file_handler: Any) -> None:
     mock_rotating_file_handler.assert_called_once_with('logs/test.log', maxBytes=5*1024*1024, backupCount=5)
 
 # Test for file handler creation failure
-@patch('src.logger.RotatingFileHandler', side_effect=OSError("Permission denied"))
+@patch('pipeline.src.logger.RotatingFileHandler', side_effect=OSError("Permission denied"))
 def test_create_file_handler_raises_error(mock_rotating_file_handler: Any) -> None:
     """
     Test that create_file_handler raises LoggerSetupError if file handler creation fails.
@@ -66,9 +65,9 @@ def test_create_file_handler_raises_error(mock_rotating_file_handler: Any) -> No
         create_file_handler('logs/test.log', 'INFO')
 
 # Test for the full setup_logger function
-@patch('src.logger.ensure_log_directory_exists')  # Correct the module path
-@patch('src.logger.create_console_handler')       # Correct the module path
-@patch('src.logger.create_file_handler')          # Correct the module path
+@patch('spipeline.rc.logger.ensure_log_directory_exists')
+@patch('pipeline.src.logger.create_console_handler') 
+@patch('pipeline.src.logger.create_file_handler')
 def test_setup_logger(mock_file_handler: Any, mock_console_handler: Any, mock_ensure_log_directory_exists: Any) -> None:
     """
     Test the full setup_logger function to ensure it sets up the handlers and logger correctly.

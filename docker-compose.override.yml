@@ -40,3 +40,9 @@ services:
       - ./gcs-key.json:/app/gcs-key.json:ro
     ports:
       - "8080:8080"
+
+  pipeline_tests:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    command: pytest
