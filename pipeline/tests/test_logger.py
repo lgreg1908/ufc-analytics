@@ -65,7 +65,7 @@ def test_create_file_handler_raises_error(mock_rotating_file_handler: Any) -> No
         create_file_handler('logs/test.log', 'INFO')
 
 # Test for the full setup_logger function
-@patch('spipeline.rc.logger.ensure_log_directory_exists')
+@patch('pipeline.src.logger.ensure_log_directory_exists')
 @patch('pipeline.src.logger.create_console_handler') 
 @patch('pipeline.src.logger.create_file_handler')
 def test_setup_logger(mock_file_handler: Any, mock_console_handler: Any, mock_ensure_log_directory_exists: Any) -> None:
