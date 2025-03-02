@@ -30,6 +30,25 @@ class BaseScraper:
             )
         })
 
+    def _attach_url_attr(self, data: Any, url: str, attr_name: str) -> Any:
+        """
+        Helper method to attach a URL attribute to the parsed data.
+        
+        Args:
+            data: Parsed data (either a single object or a list of objects).
+            url: The URL from which the data was scraped.
+            attr_name: The name of the attribute to attach the URL.
+            
+        Returns:
+            The original data with the URL attribute attached.
+        """
+        if isinstance(data, list):
+            for item in data:
+                setattr(item, attr_name, url)
+        else:
+            setattr(data, attr_name, url)
+        return data
+
     def get_soup(self, url: str) -> Optional[BeautifulSoup]:
         """
         Fetch and parse the HTML content from the given URL.
@@ -41,8 +60,7 @@ class BaseScraper:
         except (HTTPError, ConnectionError, Timeout, RequestException) as err:
             logger.error(f"Error fetching URL {url}: {err}")
             return None
-
-    def scrape_many(
+    def scrape(
         self,
         urls: List[str],
         parser: Callable[[BeautifulSoup], Any],
@@ -80,13 +98,8 @@ class BaseScraper:
                     logger.warning(f"No data parsed from {url}")
                     continue
 
-                # Optionally attach the URL to each parsed item
                 if attach_url_attr:
-                    if isinstance(data, list):
-                        for item in data:
-                            setattr(item, attach_url_attr, url)
-                    else:
-                        setattr(data, attach_url_attr, url)
+                    data = self._attach_url_attr(data, url, attach_url_attr)
 
                 if isinstance(data, list):
                     results.extend(data)
@@ -94,14 +107,13 @@ class BaseScraper:
                     results.append(data)
         return results
 
-
 class EventsScraper(BaseScraper):
     def scrape_events(self, event_urls: List[str]) -> List[Event]:
         """
         Concurrently scrape event data from the list of event URLs.
         """
         logger.info("Starting concurrent scraping of events.")
-        events = self.scrape_many(event_urls, parse_event)
+        events = self.scrape(event_urls, parse_event)
         logger.info("Completed scraping events.")
         return events
 
@@ -113,7 +125,7 @@ class ResultsScraper(BaseScraper):
         The parser attaches the event URL to each result using the attribute 'event_url'.
         """
         logger.info("Starting concurrent scraping of fight results.")
-        results = self.scrape_many(event_urls, parse_results, attach_url_attr='event_url')
+        results = self.scrape(event_urls, parse_results, attach_url_attr='event_url')
         logger.info("Completed scraping fight results.")
         return results
 
@@ -125,7 +137,7 @@ class FightersScraper(BaseScraper):
         The parser attaches the fighter URL to each fighter object using 'fighter_url'.
         """
         logger.info("Starting concurrent scraping of fighter details.")
-        fighters = self.scrape_many(fighter_urls, parse_fighter, attach_url_attr='fighter_url')
+        fighters = self.scrape(fighter_urls, parse_fighter, attach_url_attr='fighter_url')
         logger.info("Completed scraping fighter details.")
         return fighters
 
@@ -137,6 +149,6 @@ class RoundsScraper(BaseScraper):
         The parser attaches the fight URL to each round using 'fight_url'.
         """
         logger.info("Starting concurrent scraping of rounds data.")
-        rounds = self.scrape_many(fight_urls, parse_rounds, attach_url_attr='fight_url')
+        rounds = self.scrape(fight_urls, parse_rounds, attach_url_attr='fight_url')
         logger.info("Completed scraping rounds data.")
         return rounds
