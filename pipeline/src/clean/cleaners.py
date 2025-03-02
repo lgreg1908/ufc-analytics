@@ -35,17 +35,21 @@ class EventsCleaner(BaseCleaner):
       - Extract location components into new columns (city, state, country)
         using vectorized string operations.
     """
+
     def clean(self) -> pd.DataFrame:
-        df = self.df.copy()
-        # Convert 'date' column to datetime (any invalid parsing becomes NaT)
-        df['date'] = pd.to_datetime(df['date'], errors='coerce')
-        
-        # Extract location parts using our helper function
-        loc_parts = extract_location_parts(df['location'])
-        
-        # Concatenate the new columns to the original dataframe
-        df = pd.concat([df, loc_parts], axis=1)
-        return df
+      
+      # Create a copy of the original df
+      df = self.df.copy()
+
+      # Convert 'date' column to datetime (any invalid parsing becomes NaT)
+      df['date'] = pd.to_datetime(df['date'], errors='coerce')
+
+      # Extract location parts using our helper function
+      loc_parts: pd.DataFrame = extract_location_parts(df['location'])
+
+      # Concatenate the new columns to the original dataframe
+      df = pd.concat([df, loc_parts], axis=1)
+      return df
 
 
 class ResultsCleaner(BaseCleaner):
@@ -129,7 +133,6 @@ class FighterCleaner(BaseCleaner):
         
         # Convert the 'reach' column to centimeters and add as new column
         df['reach_cm'] = convert_reach_to_cm(df['reach'])
-        
         return df
     
 
