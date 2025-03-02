@@ -78,7 +78,7 @@ def get_fighter_urls(results_data: List[Dict[str, Any]]) -> List[str]:
     all_fighter_urls = []
     for fight in results_data:
         if 'fighters_urls' not in fight:
-            raise ValueError("'fighters_urls' field is missing in the data.") from e
+            raise ValueError("'fighters_urls' field is missing in the data.")
         # Append all fighter URLs from the current fight
         all_fighter_urls.extend(fight['fighters_urls'])
 
