@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from src.scrape.parsers.utils import normalize_headers, combine_dicts
+from pipeline.src.scrape.parsers.utils import normalize_headers, combine_dicts
 
 def test_normalize_headers_with_valid_data():
     """

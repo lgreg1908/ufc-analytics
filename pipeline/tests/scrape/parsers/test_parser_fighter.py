@@ -1,6 +1,6 @@
 import pytest
 from bs4 import BeautifulSoup
-from src.scrape.parsers.fighter import parse_fighter, Fighter
+from pipeline.src.scrape.parsers.fighter import parse_fighter, Fighter
 
 def test_parse_fighter_valid_html():
     """

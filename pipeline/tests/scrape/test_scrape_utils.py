@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from src.scrape.utils import get_event_urls, get_fighter_urls, get_fight_urls
+from pipeline.src.scrape.utils import get_event_urls, get_fighter_urls, get_fight_urls
 
 @patch('src.logger')
 def test_get_event_urls_with_valid_data(mock_logger):

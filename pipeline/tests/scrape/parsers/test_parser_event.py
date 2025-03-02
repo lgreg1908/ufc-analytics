@@ -1,6 +1,6 @@
 import pytest
 from bs4 import BeautifulSoup
-from src.scrape.parsers.event import parse_event, Event
+from pipeline.src.scrape.parsers.event import parse_event, Event
 
 
 def test_parse_event_from_file():
