@@ -1,6 +1,8 @@
 import json
 from typing import List, Dict, Any, NamedTuple
 import io
+from io import BytesIO
+
 import yaml
 import pandas as pd
 from google.cloud import storage
@@ -82,7 +84,6 @@ def load_parquet_from_gcs(blob_name: str, bucket_name: str) -> pd.DataFrame:
     Downloads a Parquet file from GCS and loads it into a pandas DataFrame.
     """
     try:
-        from io import BytesIO
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
