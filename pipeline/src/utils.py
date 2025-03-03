@@ -1,11 +1,11 @@
-import yaml
 import json
-from typing import List, Dict, Any
-from google.cloud import storage
+from typing import List, Dict, Any, NamedTuple
 import io
+import yaml
 import pandas as pd
+from google.cloud import storage
 
-
+#------File Loading------#
 def load_json(filepath: str) -> List[Dict[str, Any]]:
     """
     Reads JSON data from a filepath.
@@ -48,6 +48,7 @@ def load_yaml(yaml_path: str) -> Dict[str, Any]:
     except yaml.YAMLError as yaml_err:
         raise yaml.YAMLError(f"Error parsing file YAML fo;e: {yaml_err}") from yaml_err
 
+#--------Cloud Storage--------
 def upload_to_gcs(bucket_name: str, source_file: str, destination_blob_name: str) -> None:
     """
     Uploads a file from the local filesystem to the specified GCS bucket using the full path.
@@ -93,3 +94,45 @@ def load_parquet_from_gcs(blob_name: str, bucket_name: str) -> pd.DataFrame:
         return df
     except Exception as e:
         raise IOError(f"Error loading parquet data from {blob_name}: {str(e)}") from e
+
+
+#-----Data Loading-----
+class CleanData(NamedTuple):
+    results: pd.DataFrame
+    fighters: pd.DataFrame
+    events: pd.DataFrame
+    rounds: pd.DataFrame
+    
+    
+def load_clean_data(config: Dict[str, str]) -> CleanData:
+    """
+    Loads dataframes from GCS based on the provided configuration.
+
+    Parameters:
+        config (dict): A dictionary containing configuration keys for blob names and bucket details.
+
+    Returns:
+        CleanData: A namedtuple containing the clean dataframes for results, fighters, events, and rounds.
+    """
+    bucket = config['gcs']['bucket']
+    clean_paths = config['output_files']['clean']
+    
+    return CleanData(
+        results=load_parquet_from_gcs(
+            blob_name=clean_paths['results'],
+            bucket_name=bucket
+        ),
+        fighters=load_parquet_from_gcs(
+            blob_name=clean_paths['fighters'],
+            bucket_name=bucket
+        ),
+        events=load_parquet_from_gcs(
+            blob_name=clean_paths['events'],
+            bucket_name=bucket
+        ),
+        rounds=load_parquet_from_gcs(
+            blob_name=clean_paths['rounds'],
+            bucket_name=bucket
+        )
+    )
+
