@@ -11,7 +11,11 @@ import plotly.express as px
 # Add the project root to PYTHONPATH
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from pipeline.src.utils import load_yaml, load_parquet_from_gcs
+from pipeline.src.utils import (
+    load_yaml, 
+    load_parquet_from_gcs
+    )
+from pipeline.src.pipelines.clean import CleanData, load_clean_data
 from pipeline.src.transform.results_transformer import wide_to_long_results
 from pipeline.src.transform.utils import (
     add_all_cumsum_columns, 
@@ -25,9 +29,14 @@ from utils.viz import (
     build_histogram, 
     build_fight_outcome_chart)
 
+# Load the configuation data
+config = load_yaml(os.path.join('pipeline', 'config', 'config.yaml'))
+
+# Load the full clean dataset
+clean_data: CleanData = load_clean_data(config=config)
 
 # --------------- Data Loading ---------------
-def read_data(config: dict) -> pd.DataFrame:
+def read_data(clean_data: CleanData) -> pd.DataFrame:
     """
     Loads and preprocess the dataset for the app.
         1. Loads the cleaned results, fighter, and events dataframes.
@@ -35,29 +44,19 @@ def read_data(config: dict) -> pd.DataFrame:
         3. Merges the other dataframes.
         4. Sorts by date, fight, and fighter.
     """
-    df_results_clean = load_parquet_from_gcs(
-        blob_name=config['output_files']['clean']['results'],
-        bucket_name=config['gcs']['bucket']
-    )
-    df_fighters_clean = load_parquet_from_gcs(
-        blob_name=config['output_files']['clean']['fighters'],
-        bucket_name=config['gcs']['bucket']
-    )
-    df_events_clean = load_parquet_from_gcs(
-        blob_name=config['output_files']['clean']['events'],
-        bucket_name=config['gcs']['bucket']
-    )
-    
-    df_fighters_clean_opp = (
-        df_fighters_clean[['fighter_url', 'full_name']]
+
+    fighter_opp: pd.DataFrame = (
+        clean_data.fighters
+        .copy()
         .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"})
-    )
-    
-    df = (
-        df_results_clean.pipe(wide_to_long_results)
-        .merge(df_fighters_clean, on='fighter_url')
-        .merge(df_fighters_clean_opp, on='opp_url')
-        .merge(df_events_clean, on='event_url')
+        )[['fighter_url', 'full_name']]
+   
+    df: pd.DataFrame = (
+        clean_data.results
+        .pipe(wide_to_long_results)
+        .merge(clean_data.fighters, on='fighter_url')
+        .merge(fighter_opp, on='opp_url')
+        .merge(clean_data.events, on='event_url')
         .sort_values(by=['date', 'fight_url', 'fighter_url'])
         .reset_index(drop=True)
     )
@@ -65,7 +64,7 @@ def read_data(config: dict) -> pd.DataFrame:
 
 # Build full dataframe and computed stats
 df = (
-    read_data(config=load_yaml(os.path.join('pipeline', 'config', 'config.yaml')))
+    read_data(config)
     .assign(result_method=lambda x: x['result'].str.lower() + '_' + x['method_type'].str.lower())
     .pipe(
         add_all_cumsum_columns,
