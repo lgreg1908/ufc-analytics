@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 import pandas as pd
 import dash
 from dash import dcc, html, Input, Output, dash_table
@@ -13,7 +13,18 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from pipeline.src.utils import load_yaml, load_parquet_from_gcs
 from pipeline.src.transform.results_transformer import wide_to_long_results
-from pipeline.src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
+from pipeline.src.transform.utils import (
+    add_all_cumsum_columns, 
+    subset_most_recent_fight)
+from utils.calcs import (
+    compute_fighter_avg_interval, 
+    compute_weight_class_distribution,
+    compute_additional_stats,
+    )
+from utils.viz import (
+    build_histogram, 
+    build_fight_outcome_chart)
+
 
 # --------------- Data Loading ---------------
 def read_data(config: dict) -> pd.DataFrame:
@@ -70,45 +81,12 @@ df_current = df.pipe(
     date_col='date'
 )
 
-# --------------- Overall Distribution Calculation ---------------
-def compute_fighter_avg_interval(df):
-    """Compute the average time between fights for each fighter."""
-    def avg_interval(dates):
-        if len(dates) > 1:
-            sorted_dates = sorted(dates)
-            total_span = sorted_dates[-1] - sorted_dates[0]
-            return total_span.days / (len(sorted_dates) - 1)
-        return None
-    return df.groupby('fighter_url')['date'].apply(lambda x: avg_interval(x.tolist())).dropna()
-
 overall_avg_intervals = compute_fighter_avg_interval(df)
 # Also compute overall total fight time (in minutes) from seconds
 overall_total_fight_times = df['total_fight_duration_seconds'] / 60
 
 # --------------- Reusable Histogram Function ---------------
-def build_histogram(series: pd.Series, nbins: int = 40, width: int = 1000, height: int = 500,
-                    label: str = 'Value', title: str = 'Distribution', highlight_value: float = None):
-    """
-    Create a histogram for a given numeric pandas Series with an optional vertical highlight line.
-    """
-    fig = px.histogram(
-        x=series,
-        nbins=nbins,
-        labels={'x': label},
-        title=title
-    )
-    fig.update_layout(width=width, height=height)
-    if highlight_value is not None:
-        fig.add_shape(
-            type='line',
-            x0=highlight_value,
-            x1=highlight_value,
-            yref='paper',
-            y0=0,
-            y1=1,
-            line=dict(color='orange', width=3, dash='dash')
-        )
-    return fig
+
 
 # Build histogram figures
 hist_avg_interval_fig = build_histogram(
@@ -121,44 +99,6 @@ hist_total_fight_time_fig = build_histogram(
     label='Total Fight Time (minutes)', 
     title='Distribution of Total Fight Time (minutes)'
 )
-
-# --------------- New: Weight Class Distribution Function ---------------
-def compute_weight_class_distribution(fights_df: pd.DataFrame) -> str:
-    """
-    Compute the percentage distribution of fights per weight class for a fighter.
-    Returns a string like "Middleweight: 90%, Welterweight: 10%".
-    """
-    counts = fights_df['weight_class'].value_counts(normalize=True) * 100
-    counts = counts.round(1)
-    distribution_str = ", ".join([f"{wc}: {perc}%" for wc, perc in counts.items()])
-    return distribution_str
-
-# --------------- Stats Figure ---------------
-def create_stats_figure(fighter):
-    outcome_categories = ['Knockout', 'Submission', 'Decision']
-    wins = [
-        fighter.get('total_win_knockout', 0),
-        fighter.get('total_win_submission', 0),
-        fighter.get('total_win_decision', 0)
-    ]
-    losses = [
-        fighter.get('total_loss_knockout', 0),
-        fighter.get('total_loss_submission', 0),
-        fighter.get('total_loss_decision', 0)
-    ]
-    fig = go.Figure(data=[
-        go.Bar(name='Wins', x=outcome_categories, y=wins, marker_color='green'),
-        go.Bar(name='Losses', x=outcome_categories, y=losses, marker_color='red')
-    ])
-    fig.update_layout(
-        barmode='group',
-        title="Fight Outcome Breakdown",
-        xaxis_title="Outcome Type",
-        yaxis_title="Count",
-        template="plotly_white",
-        margin=dict(l=20, r=20, t=40, b=20)
-    )
-    return fig
 
 # --------------- Dash App Setup ---------------
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -186,32 +126,6 @@ app.layout = dbc.Container([
     ])
 ], fluid=True)
 
-# --------------- Helper Functions for Calculations ---------------
-def calculate_age(birth_date):
-    today = datetime.today()
-    return (today - birth_date).days // 365
-
-def calculate_time_since_last_fight(last_fight_date):
-    today = datetime.today()
-    return today - last_fight_date
-
-def calculate_average_time_between_fights(fight_dates):
-    if len(fight_dates) <= 1:
-        return None
-    sorted_dates = sorted(fight_dates)
-    total_span = sorted_dates[-1] - sorted_dates[0]
-    return total_span / (len(sorted_dates) - 1)
-
-def compute_additional_stats(fighter, fights_df):
-    age = calculate_age(fighter['date_of_birth'])
-    time_since_last = calculate_time_since_last_fight(fighter['date'])
-    fight_dates = fights_df['date'].tolist()
-    avg_interval = calculate_average_time_between_fights(fight_dates)
-    return {
-        'age': age,
-        'time_since_last_days': time_since_last.days,
-        'avg_interval_days': avg_interval.days if avg_interval is not None else "N/A"
-    }
 
 # --------------- Helper Functions for UI Components ---------------
 def build_fighter_info_card(fighter, stats):
@@ -313,7 +227,7 @@ def build_stats_card(fighter, weight_distribution):
             dbc.CardBody([
                 dcc.Graph(
                     id="stats-graph",
-                    figure=create_stats_figure(fighter)
+                    figure=build_fight_outcome_chart(fighter)
                 ),
                 html.Hr(),
                 html.P("Weight Class Distribution: " + weight_distribution, style={'fontWeight': 'bold'}),
@@ -388,17 +302,6 @@ def build_fight_history_table(fights_df):
         ],
         className="mb-4 shadow"
     )
-
-# --------------- New Helper: Weight Class Distribution ---------------
-def compute_weight_class_distribution(fights_df: pd.DataFrame) -> str:
-    """
-    Compute the percentage distribution of fights per weight class for a fighter.
-    Returns a string like "Middleweight: 90%, Welterweight: 10%".
-    """
-    counts = fights_df['weight_class'].value_counts(normalize=True) * 100
-    counts = counts.round(1)
-    distribution_str = ", ".join([f"{wc}: {perc}%" for wc, perc in counts.items()])
-    return distribution_str
 
 # --------------- Modularized Callback ---------------
 @app.callback(
