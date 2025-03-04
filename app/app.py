@@ -13,10 +13,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from pipeline.src.utils import load_yaml
 from pipeline.src.clean.load_clean import CleanData, load_clean_data
-from pipeline.src.pipelines.transform import create_long_results_dataframe
-from pipeline.src.transform.numerical import (
-    add_all_cumsum_columns, 
-    subset_most_recent_fight)
+from pipeline.src.transform.fighter_fight.pipeline import create_base_dataframe
+from pipeline.src.transform.fighter_fight.components.numerical import add_all_cumsum_columns
+from pipeline.src.transform.fighter_fight.components.reshape import subset_most_recent_fight
+
 from utils.calcs import (
     compute_fighter_avg_interval, 
     compute_weight_class_distribution,
@@ -39,10 +39,17 @@ fighter_opp: pd.DataFrame = (
     .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"})
     )[['fighter_url', 'full_name']]
 
+# Instantiate the pipeline
+# pipeline: FighterFight = FighterFight(data=clean_data)
+
+# Run the pipeline to get core dataframe
+# df_: pd.DataFrame = pipeline.run()
+
+
 # The main dataframe 
 df: pd.DataFrame = (
         # Melts the wide to long and joins clean data
-        create_long_results_dataframe(data=clean_data)
+        create_base_dataframe(data=clean_data)
 
         # Joins fighter's name
         .merge(fighter_opp, on='opp_url')
