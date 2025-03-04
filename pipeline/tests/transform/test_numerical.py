@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_series_equal, assert_frame_equal
 
-from pipeline.src.transform.utils import add_all_cumsum_columns, subset_most_recent_fight
+from pipeline.src.transform.numerical import add_all_cumsum_columns, subset_most_recent_fight
 
 def test_add_all_cumsum_columns_dummy_only():
     # Create a DataFrame with a dummy (categorical) column.

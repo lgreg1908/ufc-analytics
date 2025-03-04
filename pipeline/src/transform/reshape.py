@@ -1,7 +1,5 @@
 import pandas as pd
-import numpy as np
-
-
+ 
 def wide_to_long_results(df: pd.DataFrame) -> pd.DataFrame:
     """
     Convert a wide-format results DataFrame (with separate fighter1 and fighter2 columns)
@@ -42,6 +40,3 @@ def wide_to_long_results(df: pd.DataFrame) -> pd.DataFrame:
         )
 
     return long_df
-    
-def compute_stats_results(df: pd.DataFrame, window_list=[3, 5]) -> pd.DataFrame:
-    return pd.DataFrame({"a": [1, 2, 3]})

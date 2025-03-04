@@ -1,10 +1,12 @@
 import pandas as pd
-import os
-from pandas import DataFrame
 from typing import List
 
-
-def add_dummy_cumsum(df: DataFrame, dummy_col: str, group_col: str, prefix: str = "total_") -> DataFrame:
+def add_dummy_cumsum(
+        df: pd.DataFrame, 
+        dummy_col: str, 
+        group_col: str, 
+        prefix: str = "total_"
+    ) -> pd.DataFrame:
     """
     Adds dummy variable columns for a specified categorical column and computes
     the cumulative sum of these dummy variables grouped by a given column.
@@ -55,11 +57,14 @@ def add_dummy_cumsum(df: DataFrame, dummy_col: str, group_col: str, prefix: str 
 
     # Drop the intermediate dummy columns.
     df.drop(columns=dummies.columns, inplace=True)
-
     return df
 
-
-def add_numerical_cumsum(df: DataFrame, num_col: str, group_col: str, prefix: str = "total_") -> DataFrame:
+def add_numerical_cumsum(
+        df: pd.DataFrame, 
+        num_col: str, 
+        group_col: str, 
+        prefix: str = "total_"
+    ) -> pd.DataFrame:
     """
     Cleans a numerical column by ensuring numeric type and filling missing values,
     then computes its cumulative sum grouped by a specified column, and adds the result 
@@ -94,18 +99,17 @@ def add_numerical_cumsum(df: DataFrame, num_col: str, group_col: str, prefix: st
     # Define the new column name and add the cumulative sum to the DataFrame.
     new_col_name = f"{prefix}{num_col}"
     df[new_col_name] = cumsum
-
     return df
 
 
 def add_all_cumsum_columns(
-    df: DataFrame, 
+    df: pd.DataFrame, 
     dummy_cols: List[str], 
     numerical_cols: List[str], 
     group_col: str, 
     prefix: str = "total_",
     row_count_col: str = "row_count"
-) -> DataFrame:
+) -> pd.DataFrame:
     """
     Applies cumulative sum calculations for both dummy and numerical columns,
     and also adds a cumulative row count column for each group.
@@ -146,11 +150,10 @@ def add_all_cumsum_columns(
         
     # Compute the cumulative row count for each group.
     df[row_count_col] = df.groupby(group_col).cumcount() + 1
-    
     return df
 
 
-def subset_most_recent_fight(df: DataFrame, fighter_col: str, date_col: str) -> DataFrame:
+def subset_most_recent_fight(df: pd.DataFrame, fighter_col: str, date_col: str) -> pd.DataFrame:
     """
     Subset the DataFrame to return the most recent fight for each fighter based on the given date column.
 
