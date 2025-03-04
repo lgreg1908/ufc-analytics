@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import List
 
+
 def add_dummy_cumsum(
         df: pd.DataFrame, 
         dummy_col: str, 
@@ -58,6 +59,7 @@ def add_dummy_cumsum(
     # Drop the intermediate dummy columns.
     df.drop(columns=dummies.columns, inplace=True)
     return df
+
 
 def add_numerical_cumsum(
         df: pd.DataFrame, 
@@ -153,33 +155,33 @@ def add_all_cumsum_columns(
     return df
 
 
-def subset_most_recent_fight(df: pd.DataFrame, fighter_col: str, date_col: str) -> pd.DataFrame:
+def add_timedelta_columns(
+    df: pd.DataFrame, 
+    group_col: str = "fighter_url", 
+    date_col: str = "date", 
+    birthdate_col: str = "date_of_birth", 
+    time_since_col: str = "time_since_prev_fight", 
+    age_col: str = "age"
+) -> pd.DataFrame:
     """
-    Subset the DataFrame to return the most recent fight for each fighter based on the given date column.
+    Compute the time since the previous fight and the fighter's age using method chaining.
 
-    Parameters
-    ----------
-    df : DataFrame
-        The input DataFrame containing fight records.
-    fighter_col : str
-        The column name that uniquely identifies each fighter.
-    date_col : str
-        The column name that contains the date or timestamp of the fight.
-        This column should be convertible to datetime.
+    Parameters:
+        df (pd.DataFrame): The input dataframe containing fight data.
+        group_col (str, optional): The column representing the fighter's unique identifier. Default is "fighter_url".
+        date_col (str, optional): The column representing fight dates. Default is "date".
+        birthdate_col (str, optional): The column representing fighter's birth date. Default is "date_of_birth".
+        time_since_col (str, optional): Name for the output column storing time since the previous fight. Default is "time_since_prev_fight".
+        age_col (str, optional): Name for the output column storing the fighter's age. Default is "age".
 
-    Returns
-    -------
-    DataFrame
-        A subset of the input DataFrame containing only the most recent fight for each fighter.
+    Returns:
+        pd.DataFrame: The dataframe with additional columns for time since the last fight and fighter's age.
     """
-    # Convert the date column to datetime (coercing errors to NaT)
-    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-    
-    # Drop rows where the date conversion failed (NaT)
-    df = df.dropna(subset=[date_col])
-    
-    # Group by fighter and get the index of the row with the maximum (most recent) date
-    idx = df.groupby(fighter_col)[date_col].idxmax()
-    
-    # Return the subset of rows corresponding to the most recent fight per fighter.
-    return df.loc[idx].copy().reset_index(drop=True)
+    return (
+        df.assign(
+            date_prev=df.groupby(group_col)[date_col].shift(1),
+            **{time_since_col: lambda x: (x[date_col] - x['date_prev']).dt.days},
+            **{age_col: lambda x: (x[date_col] - x[birthdate_col]).dt.days / 365.25}
+        )
+        .drop(columns=['date_prev'], errors="ignore")
+    )

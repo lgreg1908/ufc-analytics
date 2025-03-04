@@ -37,7 +37,7 @@ fighter_opp: pd.DataFrame = (
     clean_data.fighters
     .copy()
     .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"})
-    )[['fighter_url', 'full_name']]
+    )[['opp_url', 'opp_full_name']]
 
 # Instantiate the pipeline
 # pipeline: FighterFight = FighterFight(data=clean_data)
