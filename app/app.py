@@ -11,13 +11,10 @@ import plotly.express as px
 # Add the project root to PYTHONPATH
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from pipeline.src.utils import (
-    load_yaml, 
-    load_parquet_from_gcs
-    )
-from pipeline.src.pipelines.clean import CleanData, load_clean_data
-from pipeline.src.transform.results_transformer import wide_to_long_results
-from pipeline.src.transform.utils import (
+from pipeline.src.utils import load_yaml
+from pipeline.src.clean.load_clean import CleanData, load_clean_data
+from pipeline.src.pipelines.transform import create_long_results_dataframe
+from pipeline.src.transform.numerical import (
     add_all_cumsum_columns, 
     subset_most_recent_fight)
 from utils.calcs import (
@@ -35,56 +32,46 @@ config = load_yaml(os.path.join('pipeline', 'config', 'config.yaml'))
 # Load the full clean dataset
 clean_data: CleanData = load_clean_data(config=config)
 
-# --------------- Data Loading ---------------
-def read_data(clean_data: CleanData) -> pd.DataFrame:
-    """
-    Loads and preprocess the dataset for the app.
-        1. Loads the cleaned results, fighter, and events dataframes.
-        2. Transforms the results into wide format.
-        3. Merges the other dataframes.
-        4. Sorts by date, fight, and fighter.
-    """
+# The dataframe with opponent name
+fighter_opp: pd.DataFrame = (
+    clean_data.fighters
+    .copy()
+    .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"})
+    )[['fighter_url', 'full_name']]
 
-    fighter_opp: pd.DataFrame = (
-        clean_data.fighters
-        .copy()
-        .rename(columns={"fighter_url": "opp_url", "full_name": "opp_full_name"})
-        )[['fighter_url', 'full_name']]
-   
-    df: pd.DataFrame = (
-        clean_data.results
-        .pipe(wide_to_long_results)
-        .merge(clean_data.fighters, on='fighter_url')
+# The main dataframe 
+df: pd.DataFrame = (
+        # Melts the wide to long and joins clean data
+        create_long_results_dataframe(data=clean_data)
+
+        # Joins fighter's name
         .merge(fighter_opp, on='opp_url')
-        .merge(clean_data.events, on='event_url')
+
+        # For safety given cumsum calculations
         .sort_values(by=['date', 'fight_url', 'fighter_url'])
         .reset_index(drop=True)
-    )
-    return df
 
-# Build full dataframe and computed stats
-df = (
-    read_data(config)
-    .assign(result_method=lambda x: x['result'].str.lower() + '_' + x['method_type'].str.lower())
-    .pipe(
-        add_all_cumsum_columns,
-        dummy_cols=['result', 'result_method', 'weight_class'],
-        numerical_cols=['title_fight', 'perf_bonus', 'fight_of_the_night', 'fight_duration_seconds'],
-        group_col='fighter_url',
-        row_count_col='total_fights'
+        .assign(result_method=lambda x: x['result'].str.lower() + '_' + x['method_type'].str.lower())
+        .pipe(
+            add_all_cumsum_columns,
+            dummy_cols=['result', 'result_method', 'weight_class'],
+            numerical_cols=['title_fight', 'perf_bonus', 'fight_of_the_night', 'fight_duration_seconds'],
+            group_col='fighter_url',
+            row_count_col='total_fights'
+        )
     )
-)
-df_current = df.pipe(
+# View of above as current
+df_current: pd.DataFrame = df.pipe(
     subset_most_recent_fight,
     fighter_col='fighter_url',
     date_col='date'
 )
 
-overall_avg_intervals = compute_fighter_avg_interval(df)
-# Also compute overall total fight time (in minutes) from seconds
-overall_total_fight_times = df['total_fight_duration_seconds'] / 60
+# Avg time btw fights 
+overall_avg_intervals: pd.Series = compute_fighter_avg_interval(df)
 
-# --------------- Reusable Histogram Function ---------------
+# Also compute overall total fight time (in minutes) from seconds
+overall_total_fight_times: pd.Series = df['total_fight_duration_seconds'] / 60
 
 
 # Build histogram figures
