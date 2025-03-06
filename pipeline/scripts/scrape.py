@@ -2,7 +2,6 @@ import os
 import sys
 from pydantic import BaseModel
 from typing import List
-from google.cloud import storage
 
 from pipeline.src.scrape.scrapers import (
     EventsScraper, 
