@@ -10,7 +10,7 @@ def test_parse_event_from_file():
     Ensure that the function parses the file and extracts the correct event details.
     """
     # Load the HTML content from the uploaded file
-    with open("pipeline/tests/data/test_event.html", 'r', encoding='utf-8') as file:
+    with open("pipeline/tests/test_data/test_event.html", 'r', encoding='utf-8') as file:
         html_content = file.read()
 
     soup = BeautifulSoup(html_content, 'html.parser')

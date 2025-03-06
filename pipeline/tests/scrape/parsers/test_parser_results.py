@@ -6,13 +6,13 @@ import os
 @pytest.fixture
 def test_draw_soup():
     """Fixture to load and return the BeautifulSoup object for test_result_draw.html"""
-    with open(os.path.join("pipeline/tests/data/test_result_draw.html")) as f:
+    with open(os.path.join("pipeline/tests/test_data/test_result_draw.html")) as f:
         return BeautifulSoup(f, "html.parser")
 
 @pytest.fixture
 def test_win_soup():
     """Fixture to load and return the BeautifulSoup object for test_result_win.html"""
-    with open(os.path.join("pipeline/tests/data/test_result_win.html")) as f:
+    with open(os.path.join("pipeline/tests/test_data/test_result_win.html")) as f:
         return BeautifulSoup(f, "html.parser")
 
 def test_parse_results_draw(test_draw_soup):

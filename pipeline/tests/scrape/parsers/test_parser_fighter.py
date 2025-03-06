@@ -9,7 +9,7 @@ def test_parse_fighter_valid_html():
     """
 
     # Load the test HTML file
-    with open('pipeline/tests/data/test_fighter.html', 'r', encoding='utf-8') as f:
+    with open('pipeline/tests/test_data/test_fighter.html', 'r', encoding='utf-8') as f:
         html_content = f.read()
 
     # Parse the HTML content using BeautifulSoup
